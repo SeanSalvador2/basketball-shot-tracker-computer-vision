@@ -1,0 +1,9 @@
+regime,backbone,min_size,ball_recall_iou0.3,mAP0.5,n_gt,pretrained,set,n,ball_fire_rate,person_fire_rate,ball_mean_conf,note
+S,mobilenet,512,0.0,0.0,77,True,,,,,,
+S,mobilenet,768,0.0,0.0,77,True,,,,,,
+S,mobilenet,1088,0.0,0.0,77,True,,,,,,
+R-zeroshot,mobilenet,512,,,,,emir-basketball-ball,40,0.3,0.95,0.748,"fire-rate, no GT boxes"
+R-zeroshot,mobilenet,768,,,,,emir-basketball-ball,40,0.35,0.95,0.78,"fire-rate, no GT boxes"
+R-zeroshot,mobilenet,1088,,,,,emir-basketball-ball,40,0.35,0.95,0.78,"fire-rate, no GT boxes"
+R-zeroshot,resnet50,768,,,,,emir-basketball-ball,12,0.75,1.0,0.735,"fire-rate, no GT boxes"
+R-zeroshot,mobilenet,768,,,,,Basketball_V0-clips,24,0.417,0.0,0.784,"fire-rate, no GT boxes"

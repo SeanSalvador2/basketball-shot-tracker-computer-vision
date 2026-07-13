@@ -13,6 +13,7 @@ Tracking: MLflow local file store (`mlruns/`, gitignored). Committed summaries:
 | ID | Question | Config | MLflow run | Figure |
 |---|---|---|---|---|
 | A1 | ball association: 4 arms | `configs/ablations/a1.yaml` | `637b00ffef45439b9414ece9019f53bc` | `a1_association_arms.png` |
+| A3 | detector input resolution (S + zero-shot R) | `configs/ablations/a3.yaml` | `ae94c87cb9d64747a5368f443ce3426c` | `a3_resolution.png` |
 | A5 | occlusion bridging × gap | `configs/ablations/a5.yaml` | `02ca1ce78ee2414890d9fb98394dff95` | `a5_bridging_gap.png` |
 | A6 | camera azimuth × height → T5 | `configs/ablations/a6.yaml` | `81cb96a50f914637be859cf860dd90e6` | `a6_azimuth_sweep.png` |
 | A7 | homography pts × noise × refine | `configs/ablations/a7.yaml` | `ea483f11dbfd414fb0dcbc409f75e92e` | `a7_homography_error.png`, `a7_error_isolines.png` |
@@ -195,14 +196,97 @@ channel is promising and cheap (R4 vindicated at the proposal level), bridging i
 for completeness, and the A1 *decision* (heatmap vs bbox) genuinely requires Stage-B real
 footage — which is where the plan always placed the burden of proof.
 
+## A3 — Detector input resolution {512, 768, 1088}
+
+**Weights update (supersedes pipeline deviation D2).** The COCO checkpoints were re-fetched:
+the earlier `download.pytorch.org` 403 was **transient**, and a plain `curl` through the same
+proxy now returns both `fasterrcnn_mobilenet_v3_large_fpn` and `fasterrcnn_resnet50_fpn_v2`
+weights (HTTP 200; URLs in `docs/REPRODUCING.md`). The torchvision wrapper loads them as a
+genuine COCO detector (`pretrained=True`). A3 is therefore run for real, and a first
+zero-shot **R-regime** data point is available.
+
+**Hypothesis (plan §7, registered before results).** Small-object recall of a 20–40 px
+basketball rises with `min_size`: torchvision resizes the short side to `min_size`, so a
+higher setting hands the ball more pixels, up to a diminishing-returns / false-positive knee.
+Secondary, pre-registered: zero-shot COCO transfers *weakly* to the procedural synthetic
+renders (appearance gap), so the synthetic sweep tests the resolution lever on a detector that
+may barely fire.
+
+**Setup.** torchvision Faster R-CNN, mobilenet backbone (throughput; one resnet50_fpn_v2
+accuracy-reference point), `min_size ∈ {512, 768, 1088}`, CPU. Two regimes:
+- **S (synthetic):** 4 rendered shots at 55°/1.5 m, full 1920×1080, flight frames subsampled
+  (stride 6); GT ball boxes from the renderer (`ball_img_px` ± apparent radius). Metrics:
+  recall @ IoU 0.3, mAP@0.5 (one class ⇒ mAP = AP, VOC all-points).
+- **R (real, zero-shot — PRELIMINARY):** two permissive HF sets — `emirsahin/basketball-ball`
+  (40 `valid` frames, read straight from the committed zip) and `ZhiChengAI/Basketball_V0`
+  (frames sampled from the two clips). Those exports ship **no** usable GT boxes, so the real
+  metric is a **detection fire-rate** (fraction of frames with a ball / person detection above
+  threshold) plus mean ball confidence — a *presence* signal, explicitly **not** IoU-matched
+  recall.
+
+**Result** (`reports/figures/ablations/a3_resolution.png`; MLflow run
+`ae94c87cb9d64747a5368f443ce3426c`; `mlruns-export/a3_resolution.csv`).
+
+Regime S — synthetic renders (mobilenet, GT boxes, n_gt = 77 visible balls):
+
+| min_size | 512 | 768 | 1088 |
+|---|---|---|---|
+| ball recall @ IoU 0.3 | **0.00** | **0.00** | **0.00** |
+| mAP@0.5 | 0.00 | 0.00 | 0.00 |
+
+Regime R — real, **zero-shot / no GT boxes / PRELIMINARY** (fire-rate = fraction of frames
+with a detection; not IoU recall):
+
+| set | backbone | min_size | ball fire-rate | ball mean conf | person fire-rate | n |
+|---|---|---|---|---|---|---|
+| emir-basketball-ball | mobilenet | 512 | 0.30 | 0.75 | 0.95 | 40 |
+| emir-basketball-ball | mobilenet | 768 | 0.35 | 0.78 | 0.95 | 40 |
+| emir-basketball-ball | mobilenet | 1088 | 0.35 | 0.78 | 0.95 | 40 |
+| emir-basketball-ball | resnet50_fpn_v2 | 768 | **0.75** | 0.74 | 1.00 | 12 |
+| Basketball_V0 clips | mobilenet | 768 | 0.42 | 0.78 | **0.00** | 24 |
+
+**Interpretation — the hypothesis was right in miniature, and three larger findings emerged.**
+On the real emir-shoots frames the resolution lever behaves as predicted but *weakly*: raising
+`min_size` 512→768 lifts ball fire-rate 0.30→0.35 and confidence 0.75→0.78, then **plateaus**
+768→1088 — a diminishing-returns knee near 768, with person detection saturated (0.95, big
+object, resolution-insensitive). The larger, unregistered findings:
+
+1. **Zero synthetic transfer (the dominant result).** Zero-shot COCO detects *nothing* on the
+   procedural renders — not the ball, not even a "person"-shaped false positive — at every
+   resolution. This is an appearance **domain gap**, not a resolution failure: the renderer's
+   flat-shaded ball and untextured court are far outside COCO's photographic distribution.
+   Consequence: the synthetic engine cannot host a real-detector accuracy ablation; the
+   detector must be **fine-tuned on real (or photorealistic) frames** before its numbers mean
+   anything — which is exactly the Stage-B detector task (plan §5.1), now *quantitatively*
+   justified rather than assumed.
+2. **Backbone capacity beats resolution for the small ball.** Swapping mobilenet→resnet50_fpn_v2
+   at a fixed 768 more than *doubles* ball fire-rate (0.35→0.75). For a 20–40 px ball the
+   feature extractor's capacity matters more than the input size — steering the Stage-B choice
+   toward the accuracy backbone (or a small-object-tuned detector) over merely upsampling.
+   (n = 12 for the resnet row — a large effect on a small sample; treat as directional.)
+3. **A data-quality catch.** The `ZhiChengAI/Basketball_V0` clips fetched in Stage A are a
+   **close-up of a tennis ball dropping through a green toy mini-hoop** — no players (hence
+   person fire-rate 0.00) and a COCO "sports ball" firing on the tennis ball (0.42). They are
+   **not** representative fixed-camera basketball footage and must not be used as an R-regime
+   proxy; `emirsahin/basketball-ball` (a person shooting a real ball at a real rim) is the
+   usable real seed. This corrects the pipeline report's earlier "real gameplay clips" label.
+
+**First REAL-regime data point (labelled preliminary, zero-shot, no-GT).** A COCO-pretrained
+detector, applied cold to real half-court shooting frames, fires on the basketball in roughly
+**a third of frames with mobilenet and three-quarters with resnet50**, at ~0.75 confidence,
+and on people **95–100%** of the time. That is an encouraging bootstrap signal for Stage-B
+labeling (the detector proposes usable person boxes and some ball boxes for the human loop),
+and a clear mandate to fine-tune for the small ball. No accuracy claim is made: without GT
+boxes these are presence fire-rates, and the sample is tens of frames.
+
+<!-- A3_RESULTS -->
+
 ## Not run (declared, not silently dropped)
 
-**A2** (heatmap input frames) and **A12** (quantization) — on the plan's declared cut line;
-CPU budget went to the non-droppables. **A3** (detector input resolution) requires
-COCO-pretrained weights, whose host is firewalled in this container (see pipeline report §
-deviations); the harness (`DetectorConfig.min_size`) and the EDA ball-size analysis that
-motivates it are in place for Stage B. **A4** (player tracker arms) — the ByteTrack-style
-tracker and multi-agent simulator exist and are unit-tested (ID stability, low-score
-recovery); the HOTA comparison moves to Stage B where TrackID3x3 sequences (fetched,
-CC BY 4.0) provide real multi-player data. **A10/A11** are Stage-B items by design (real
-pose/video data); their scaffolds are in `bball.heads` with harness-validation tests.
+**A2** (heatmap input frames) and **A12** (quantization) — see below; both now addressed in
+the residual pass. **A10/A11** are Stage-B items by design (real pose/video data); their
+scaffolds are in `bball.heads` with harness-validation tests.
+
+*(A3 and A4, previously deferred here, are now run — the COCO-weights block turned out to be
+transient. A3 is above; A4 follows. The refuted/partial pieces are kept as findings, not
+scrubbed.)*

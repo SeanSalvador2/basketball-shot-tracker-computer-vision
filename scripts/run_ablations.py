@@ -20,6 +20,7 @@ from bball.utils.seed import set_seed  # noqa: E402
 
 MODULES = {
     "A1": "bball.ablations.a1_association",
+    "A3": "bball.ablations.a3_resolution",
     "A5": "bball.ablations.a5_bridging",
     "A6": "bball.ablations.a6_azimuth",
     "A7": "bball.ablations.a7_homography",

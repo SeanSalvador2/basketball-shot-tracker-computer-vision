@@ -1,0 +1,15 @@
+# A3 — detector input resolution sweep {512, 768, 1088}
+# Regime S: synthetic renders (recall@IoU0.3 + mAP@0.5, renderer GT boxes).
+# Regime R (zero-shot, preliminary): real HF sets, ball/person fire-rate (no GT boxes).
+# Requires COCO weights in the torch hub cache (see docs/REPRODUCING.md) and the two HF
+# fetches under data/external/ for the real panel; the synthetic panel runs anywhere.
+seed: 20260713
+resolutions: [512, 768, 1088]
+azimuth_deg: 55
+height_m: 1.5
+syn_shots: 4
+syn_frame_stride: 6
+real_images: 40
+resnet_images: 12
+clip_frames_per: 12
+torch_threads: 4

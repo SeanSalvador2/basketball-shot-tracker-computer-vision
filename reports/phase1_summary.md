@@ -24,7 +24,7 @@ footage. **Every number below is regime S (synthetic)** unless explicitly marked
 | L1 ballistic bridging: F1 0.96→0.72 over 3→30-frame rim occlusions; necessary for track completeness (0.53→0.86) | **Validated (S)** | A5, A1 |
 | Platt calibration cuts ECE 77% on a held-out venue (0.117→0.027); temperature does NOT fit FSM margins | **Validated (S)** — negative result kept | A9 |
 | Leakage discipline: session/scene splits, held-out venue, val-tune/val-cal separation | **Validated (in code)** — enforced by tests | `eval/splits.py` |
-| Real-footage detection recall (ball at 20–40 px near the rim) | **Unproven** — no pretrained weights in-container; bg-sub carries the demo | Stage B (A3 + fine-tune) |
+| Real-footage detection recall (ball at 20–40 px near the rim) | **Preliminary (R, zero-shot)** — COCO weights *were* fetchable (block was transient); zero-shot on real emir-shoots frames the ball fires in ~35% (mobilenet) / ~75% (resnet50) of frames, people in 95–100%. No GT boxes ⇒ fire-rate, not IoU recall; no fine-tune yet | A3 (real panel); Stage B fine-tune |
 | Real make/miss accuracy ≥92% F1 (Stage-B target) | **Unproven** — synthetic F1 is by construction easier | Stage B |
 | T3 cm error on tape-measured real spots | **Unproven** (S bound: 5–10 cm at careful clicks) | Stage B |
 | Heatmap-vs-bbox decision at real basketball scale | **Open** — A1's reduced-scale S run cannot settle it | Stage B |

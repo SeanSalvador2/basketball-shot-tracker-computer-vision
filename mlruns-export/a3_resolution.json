@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "run_id": "ae94c87cb9d64747a5368f443ce3426c",
+    "seed": 20260713,
+    "resolutions": [
+      512,
+      768,
+      1088
+    ],
+    "backbone": "mobilenet(+resnet50 ref)",
+    "regime": "S synthetic-GT + R zero-shot fire-rate",
+    "pretrained": true,
+    "n_synth_frames": 77
+  },
+  "rows": [
+    {
+      "regime": "S",
+      "backbone": "mobilenet",
+      "min_size": 512,
+      "ball_recall_iou0.3": 0.0,
+      "mAP0.5": 0.0,
+      "n_gt": 77,
+      "pretrained": true
+    },
+    {
+      "regime": "S",
+      "backbone": "mobilenet",
+      "min_size": 768,
+      "ball_recall_iou0.3": 0.0,
+      "mAP0.5": 0.0,
+      "n_gt": 77,
+      "pretrained": true
+    },
+    {
+      "regime": "S",
+      "backbone": "mobilenet",
+      "min_size": 1088,
+      "ball_recall_iou0.3": 0.0,
+      "mAP0.5": 0.0,
+      "n_gt": 77,
+      "pretrained": true
+    },
+    {
+      "regime": "R-zeroshot",
+      "set": "emir-basketball-ball",
+      "backbone": "mobilenet",
+      "min_size": 512,
+      "n": 40,
+      "ball_fire_rate": 0.3,
+      "person_fire_rate": 0.95,
+      "ball_mean_conf": 0.748,
+      "note": "fire-rate, no GT boxes"
+    },
+    {
+      "regime": "R-zeroshot",
+      "set": "emir-basketball-ball",
+      "backbone": "mobilenet",
+      "min_size": 768,
+      "n": 40,
+      "ball_fire_rate": 0.35,
+      "person_fire_rate": 0.95,
+      "ball_mean_conf": 0.78,
+      "note": "fire-rate, no GT boxes"
+    },
+    {
+      "regime": "R-zeroshot",
+      "set": "emir-basketball-ball",
+      "backbone": "mobilenet",
+      "min_size": 1088,
+      "n": 40,
+      "ball_fire_rate": 0.35,
+      "person_fire_rate": 0.95,
+      "ball_mean_conf": 0.78,
+      "note": "fire-rate, no GT boxes"
+    },
+    {
+      "regime": "R-zeroshot",
+      "set": "emir-basketball-ball",
+      "backbone": "resnet50",
+      "min_size": 768,
+      "n": 12,
+      "ball_fire_rate": 0.75,
+      "person_fire_rate": 1.0,
+      "ball_mean_conf": 0.735,
+      "note": "fire-rate, no GT boxes"
+    },
+    {
+      "regime": "R-zeroshot",
+      "set": "Basketball_V0-clips",
+      "backbone": "mobilenet",
+      "min_size": 768,
+      "n": 24,
+      "ball_fire_rate": 0.417,
+      "person_fire_rate": 0.0,
+      "ball_mean_conf": 0.784,
+      "note": "fire-rate, no GT boxes"
+    }
+  ]
+}

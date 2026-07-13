@@ -103,6 +103,177 @@ def track_completeness(observed: np.ndarray, filled: np.ndarray | None = None,
     return out
 
 
+def detection_recall_at_iou(pred_boxes: list[list[tuple]], gt_boxes: list[list[tuple]],
+                            iou_thr: float = 0.3) -> dict:
+    """Single-class box recall at an IoU threshold, greedy one-to-one per frame.
+
+    `pred_boxes` / `gt_boxes` are per-frame lists of (x0,y0,x1,y1). A GT box counts as
+    recalled if some as-yet-unused prediction in its frame overlaps it at IoU >= iou_thr.
+    Used by A3 (detector resolution ablation, regime S)."""
+    from bball.detect.interfaces import iou as _iou
+
+    tp = n_gt = 0
+    for preds, gts in zip(pred_boxes, gt_boxes):
+        used = set()
+        for g in gts:
+            n_gt += 1
+            best_j, best_i = -1, iou_thr
+            for j, p in enumerate(preds):
+                if j in used:
+                    continue
+                v = _iou(p, g)
+                if v >= best_i:
+                    best_j, best_i = j, v
+            if best_j >= 0:
+                used.add(best_j)
+                tp += 1
+    return {"recall": tp / max(n_gt, 1), "tp": tp, "n_gt": n_gt}
+
+
+def average_precision_at_iou(pred_boxes: list[list[tuple]], pred_scores: list[list[float]],
+                             gt_boxes: list[list[tuple]], iou_thr: float = 0.5) -> dict:
+    """Single-class VOC-style average precision (all-points interpolation) at an IoU
+    threshold. Detections are ranked globally by score; each GT box is matchable once.
+    Used by A3 (mAP@0.5 has one class here, so mAP == AP)."""
+    from bball.detect.interfaces import iou as _iou
+
+    entries = []  # (score, frame, box)
+    n_gt = 0
+    for f, (preds, scores, gts) in enumerate(zip(pred_boxes, pred_scores, gt_boxes)):
+        n_gt += len(gts)
+        for box, sc in zip(preds, scores):
+            entries.append((float(sc), f, box))
+    if n_gt == 0:
+        return {"ap": float("nan"), "n_gt": 0, "n_pred": len(entries)}
+    entries.sort(key=lambda e: -e[0])
+    matched = {f: set() for f in range(len(gt_boxes))}
+    tp = np.zeros(len(entries))
+    fp = np.zeros(len(entries))
+    for k, (_, f, box) in enumerate(entries):
+        best_j, best_i = -1, iou_thr
+        for j, g in enumerate(gt_boxes[f]):
+            if j in matched[f]:
+                continue
+            v = _iou(box, g)
+            if v >= best_i:
+                best_j, best_i = j, v
+        if best_j >= 0:
+            matched[f].add(best_j)
+            tp[k] = 1
+        else:
+            fp[k] = 1
+    if not len(entries):
+        return {"ap": 0.0, "n_gt": n_gt, "n_pred": 0}
+    tp_c, fp_c = np.cumsum(tp), np.cumsum(fp)
+    recall = tp_c / n_gt
+    precision = tp_c / np.maximum(tp_c + fp_c, 1e-9)
+    # all-points interpolation: AP = integral of the monotone-max precision envelope.
+    mrec = np.concatenate([[0.0], recall, [1.0]])
+    mpre = np.concatenate([[0.0], precision, [0.0]])
+    for i in range(len(mpre) - 2, -1, -1):
+        mpre[i] = max(mpre[i], mpre[i + 1])
+    idx = np.where(mrec[1:] != mrec[:-1])[0]
+    ap = float(np.sum((mrec[idx + 1] - mrec[idx]) * mpre[idx + 1]))
+    return {"ap": ap, "n_gt": n_gt, "n_pred": len(entries)}
+
+
+def _frame_matches(gt_frame: dict, pred_frame: dict, iou_thr: float):
+    """Hungarian IoU matching within one frame. Returns list of (gt_id, pred_id) at IoU>=thr."""
+    from scipy.optimize import linear_sum_assignment
+
+    from bball.detect.interfaces import iou as _iou
+
+    gids, pids = list(gt_frame), list(pred_frame)
+    if not gids or not pids:
+        return []
+    M = np.zeros((len(gids), len(pids)))
+    for i, g in enumerate(gids):
+        for j, p in enumerate(pids):
+            M[i, j] = _iou(gt_frame[g], pred_frame[p])
+    row, col = linear_sum_assignment(-M)
+    return [(gids[r], pids[c]) for r, c in zip(row, col) if M[r, c] >= iou_thr]
+
+
+def id_switches(gt_frames: list[dict], pred_frames: list[dict], iou_thr: float = 0.5) -> int:
+    """CLEAR-MOT identity switches: a GT identity's matched track id changes across frames
+    (counting only when it was previously matched to a *different* still-remembered id)."""
+    last = {}  # gt_id -> pred_id last time it was matched
+    sw = 0
+    for gt_f, pr_f in zip(gt_frames, pred_frames):
+        for g, p in _frame_matches(gt_f, pr_f, iou_thr):
+            if g in last and last[g] != p:
+                sw += 1
+            last[g] = p
+    return sw
+
+
+def idf1(gt_frames: list[dict], pred_frames: list[dict], iou_thr: float = 0.5) -> dict:
+    """Ristani IDF1: global bipartite identity matching maximising identity true positives.
+    IDF1 = 2·IDTP / (2·IDTP + IDFP + IDFN)."""
+    from scipy.optimize import linear_sum_assignment
+
+    from bball.detect.interfaces import iou as _iou
+
+    gt_ids = sorted({g for f in gt_frames for g in f})
+    pr_ids = sorted({p for f in pred_frames for p in f})
+    gt_count = {g: sum(g in f for f in gt_frames) for g in gt_ids}
+    pr_count = {p: sum(p in f for f in pred_frames) for p in pr_ids}
+    n_gt_boxes = sum(gt_count.values())
+    n_pr_boxes = sum(pr_count.values())
+    if not gt_ids or not pr_ids:
+        return {"idf1": 0.0, "idtp": 0, "idfp": n_pr_boxes, "idfn": n_gt_boxes}
+    gi = {g: i for i, g in enumerate(gt_ids)}
+    pi = {p: j for j, p in enumerate(pr_ids)}
+    cooc = np.zeros((len(gt_ids), len(pr_ids)))  # frames both present AND IoU>=thr
+    for gt_f, pr_f in zip(gt_frames, pred_frames):
+        for g, gb in gt_f.items():
+            for p, pb in pr_f.items():
+                if _iou(gb, pb) >= iou_thr:
+                    cooc[gi[g], pi[p]] += 1
+    row, col = linear_sum_assignment(-cooc)
+    idtp = int(sum(cooc[r, c] for r, c in zip(row, col)))
+    idfp = n_pr_boxes - idtp
+    idfn = n_gt_boxes - idtp
+    denom = 2 * idtp + idfp + idfn
+    return {"idf1": (2 * idtp / denom) if denom else 0.0, "idtp": idtp, "idfp": idfp, "idfn": idfn}
+
+
+def hota_simplified(gt_frames: list[dict], pred_frames: list[dict], iou_thr: float = 0.5) -> dict:
+    """SIMPLIFIED HOTA at a single localisation threshold (detection-matched level).
+
+    HOTA = sqrt(DetA · AssA). DetA = |TP| / (|TP|+|FN|+|FP|); AssA averages the per-TP
+    association accuracy A(c) = TPA / (TPA+FNA+FPA) over the standard HOTA co-occurrence
+    counts. SIMPLIFICATION vs the reference metric: a single IoU threshold (0.5) instead of
+    the 0.05..0.95 average, and greedy-Hungarian per-frame matching. Documented in the A4
+    report; adequate for a synthetic tracker comparison, not a leaderboard submission."""
+    matches = [_frame_matches(gt_f, pr_f, iou_thr) for gt_f, pr_f in zip(gt_frames, pred_frames)]
+    tp = sum(len(m) for m in matches)
+    n_gt = sum(len(f) for f in gt_frames)
+    n_pr = sum(len(f) for f in pred_frames)
+    fn = n_gt - tp
+    fp = n_pr - tp
+    det_a = tp / max(tp + fn + fp, 1e-9)
+    # association counts over matched (gt_id, pred_id) pairs
+    pair_c, g_c, p_c = {}, {}, {}
+    for m in matches:
+        for g, p in m:
+            pair_c[(g, p)] = pair_c.get((g, p), 0) + 1
+            g_c[g] = g_c.get(g, 0) + 1
+            p_c[p] = p_c.get(p, 0) + 1
+    if tp == 0:
+        return {"hota": 0.0, "det_a": det_a, "ass_a": 0.0, "tp": tp, "fp": fp, "fn": fn}
+    ass_sum = 0.0
+    for m in matches:
+        for g, p in m:
+            tpa = pair_c[(g, p)]
+            fna = g_c[g] - tpa
+            fpa = p_c[p] - tpa
+            ass_sum += tpa / max(tpa + fna + fpa, 1e-9)
+    ass_a = ass_sum / tp
+    return {"hota": float(np.sqrt(det_a * ass_a)), "det_a": float(det_a), "ass_a": float(ass_a),
+            "tp": tp, "fp": fp, "fn": fn}
+
+
 def per_axis_t5_accuracy(preds: list[dict], gts: list[dict]) -> dict:
     """Left/right and short/long accuracy reported SEPARATELY. Each pred/gt is a dict with
     'left_right' and 'short_long' string labels (or '' / None). Only axes that are shown

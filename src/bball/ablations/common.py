@@ -44,9 +44,9 @@ def export_summary(name: str, rows: list[dict], meta: dict | None = None) -> Pat
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = EXPORT_DIR / f"{name}.csv"
     if rows:
-        keys = list(rows[0].keys())
+        keys = list(dict.fromkeys(k for r in rows for k in r))  # union, first-seen order
         with open(csv_path, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=keys)
+            w = csv.DictWriter(f, fieldnames=keys, restval="")
             w.writeheader()
             w.writerows(rows)
     json_path = EXPORT_DIR / f"{name}.json"
