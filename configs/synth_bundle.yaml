@@ -1,0 +1,22 @@
+# The Stage-A synthetic session bundle: 4 scene configs mirroring the collection grid
+# (2 gyms + 2 outdoor courts x varied camera placement). Regenerable from this file +
+# seed (gate G5); heavy artifacts land in data/synthetic/ (gitignored).
+name: stageA_core
+seed: 20260713
+fps: 60.0
+n_shots: 40
+court_spec: nba
+output_dir: data/synthetic
+
+scenes:
+  - {venue: gym_A,     azimuth_deg: 45, height_m: 3.0, distance_m: 9.0}
+  - {venue: gym_B,     azimuth_deg: 30, height_m: 1.5, distance_m: 9.0}
+  - {venue: outdoor_A, azimuth_deg: 60, height_m: 3.0, distance_m: 9.0}
+  - {venue: outdoor_B, azimuth_deg: 90, height_m: 2.5, distance_m: 10.0}
+
+detection_noise:
+  base_miss_prob: 0.03
+  occlusion_miss_gain: 0.95
+  blur_miss_gain: 0.02
+  jitter_px: 1.5
+  occlusion_jitter_gain: 6.0
