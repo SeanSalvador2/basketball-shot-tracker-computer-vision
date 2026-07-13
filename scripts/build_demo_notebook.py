@@ -60,14 +60,41 @@ plot_image_trajectory(br.xy, br.observed, rim_ellipse=rim, ax=ax,
                             f"{len(br.gaps)} bridged run(s)")
 plt.show()""")
 
-    md("### 3. Make/miss FSM + calibrated probability, per shot\nThe FSM emits a terminal-state verdict and a margin score; the margin maps to a make probability.")
-    code("""print(f"{'shot':>4} {'zone':>12} {'GT':>5} {'pred':>5} {'P(make)':>8}")
+    md("""### 2b. FSM timeline (one shot)
+The ball's image height over time against the rim level: the descending rim-level crossing
+is the rim-arrival moment; the shaded band after it is the net-dwell confirmation window the
+terminal-state MADE logic requires.""")
+    code("""ps = result['per_shot'][0]
+br, out, times = ps['art']['bridged'], ps['art']['outcome'], ps['art']['times']
+fig, ax = plt.subplots(figsize=(8, 3.5))
+ax.plot(times, br.xy[:, 1], '.', ms=3, color='tab:orange', label='ball image y')
+ax.axhline(rim.cy, color='k', lw=1, ls='--', label='rim level (ellipse centre)')
+if out.rim_idx >= 0:
+    ax.axvline(times[out.rim_idx], color='tab:red', lw=1, label='descending rim crossing')
+    ax.axvspan(times[out.rim_idx], times[min(out.rim_idx + 6, len(times) - 1)],
+               color='tab:green', alpha=0.15, label='net-dwell confirmation window')
+ax.invert_yaxis()   # image y grows downward
+ax.set_xlabel('time (s)'); ax.set_ylabel('image y (px)')
+ax.legend(fontsize=8, loc='lower right')
+ax.set_title(f"shot 1 FSM timeline -> verdict: {out.outcome.upper()} (margin {out.margin_score:+.1f})")
+plt.show()""")
+
+    md("""### 3. Make/miss FSM + probability, per shot
+The FSM emits a terminal-state verdict and a margin score; the margin maps to a make
+probability. `raw FSM` shows the unfiltered verdict — `none` means *no shot attempt was
+detected at all* (a T1 recall failure, coerced to `miss` in the session report), which is a
+different failure class than a wrong make/miss verdict (T2).""")
+    code("""print(f"{'shot':>4} {'zone':>12} {'GT':>5} {'pred':>5} {'raw FSM':>8} {'P(make)':>8}")
 for i, ps in enumerate(result['per_shot']):
     r, gt = ps['result'], ps['meta']['gt_outcome']
-    flag = '' if r.outcome == gt else '  <-- mismatch'
-    print(f"{i+1:>4} {r.zone:>12} {gt:>5} {r.outcome:>5} {r.make_prob:>8.2f}{flag}")
+    raw = ps['art']['outcome'].outcome
+    flag = '' if r.outcome == gt else ('  <-- attempt not detected (T1)' if raw == 'none' else '  <-- wrong verdict (T2)')
+    print(f"{i+1:>4} {r.zone:>12} {gt:>5} {r.outcome:>5} {raw:>8} {r.make_prob:>8.2f}{flag}")
 acc = accuracy_vs_gt(result)
-print(f"\\ndemo make/miss accuracy vs ground truth: {acc['correct']}/{acc['n']} = {acc['accuracy']:.0%} (regime S)")""")
+print(f"\\ndemo outcome accuracy vs ground truth: {acc['correct']}/{acc['n']} = {acc['accuracy']:.0%} (regime S)")
+print("Any 'attempt not detected' row is the close-range case where the ball's above-rim arc")
+print("hides behind the backboard from this camera: a detection-visibility failure the")
+print("classical bg-sub channel cannot fix and the fine-tuned Stage-B detector targets.")""")
 
     md("### 4. Court-mapped shot chart\nShooter positions are lifted to court coordinates (here the synthetic GT feet; Stage B tracks the shooter). Green ● = make, red ✕ = miss.")
     code("""fig, ax = plt.subplots(figsize=(6, 6))
@@ -82,6 +109,10 @@ print(json.dumps(result['report'].summary(), indent=2))""")
 - **Detection** here is background subtraction (no weights) so the demo is fully
   self-contained; swapping in a fine-tuned detector is a one-line change (same `BallCandidate`
   contract).
+- The demo deliberately keeps its **one failure case** visible: a point-blank shot whose
+  above-rim arc hides behind the backboard is invisible to any pixel-level detector from this
+  camera — a T1 (attempt-detection) miss, not an FSM error. Batch FSM accuracy on ground-truth
+  tracks at this placement is 89–96% (regime S; see `reports/phase1_experiments.md`).
 - **Short/long** miss direction and near-rim make/miss are camera-placement dependent (see
   ablation **A6**); this clip uses a 1.5 m tripod at ~55° where the rim ellipse is well-formed
   (see EDA `eda_rim_geometry`).

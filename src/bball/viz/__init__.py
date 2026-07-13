@@ -1,11 +1,15 @@
 """VIZ — court plots, overlays, reliability diagrams, timelines.
 
-All figures use the non-interactive Agg backend so they render headless and are
-regenerable from a committed config + seed (plan gate G5).
+Figures render headless on the non-interactive Agg backend so every report figure is
+regenerable from a committed config + seed (plan gate G5). Inside a Jupyter kernel the
+inline backend is left alone so notebook cells still capture their figures.
 """
+import sys
+
 import matplotlib
 
-matplotlib.use("Agg")
+if "ipykernel" not in sys.modules:  # scripts/tests: headless Agg; notebooks: keep inline
+    matplotlib.use("Agg")
 
 from bball.viz.court import plot_halfcourt, shot_chart  # noqa: E402
 from bball.viz.reliability import reliability_diagram  # noqa: E402

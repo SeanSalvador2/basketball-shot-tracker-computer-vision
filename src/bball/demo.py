@@ -23,7 +23,13 @@ from bball.track.ballistic import bridge_trajectory
 
 
 def load_demo(assets_dir: str | Path):
-    """Return (frames_bgr, meta, rim_ellipse, H_img_to_court, court)."""
+    """Return (frames_bgr, meta, rim_ellipse, H_img_to_court, court).
+
+    Everything is expressed in the rendered frame's own pixel space (the clip is rendered at
+    meta['scale'] x the native camera resolution): the rim ellipse is scaled to frame pixels,
+    and the returned homography maps FRAME pixels -> court metres (native homography composed
+    with the scale), so one consistent coordinate system flows through the whole demo.
+    """
     import cv2
     import imageio.v2 as imageio
 
@@ -33,18 +39,20 @@ def load_demo(assets_dir: str | Path):
     reader = imageio.get_reader(str(assets_dir / "demo_clip.mp4"))
     frames = [cv2.cvtColor(f, cv2.COLOR_RGB2BGR) for f in reader]
     reader.close()
+    s = meta["scale"]
     e = meta["rim_ellipse"]
-    rim = RimEllipse(cx=e["cx"] * meta["scale"], cy=e["cy"] * meta["scale"],
-                     a=e["a"] * meta["scale"], b=e["b"] * meta["scale"], theta_deg=e["theta_deg"])
-    H_court_to_img = np.array(meta["H_court_to_img"])
-    H_img_to_court = np.linalg.inv(H_court_to_img)
+    rim = RimEllipse(cx=e["cx"] * s, cy=e["cy"] * s, a=e["a"] * s, b=e["b"] * s,
+                     theta_deg=e["theta_deg"])
+    H_court_to_native = np.array(meta["H_court_to_img"])
+    S = np.diag([s, s, 1.0])                      # native px -> frame px
+    H_img_to_court = np.linalg.inv(S @ H_court_to_native)
     court = get_court(meta["court_spec"])
     return frames, meta, rim, H_img_to_court, court
 
 
-def process_shot(frames_slice, scale, rim_ellipse, fps=60.0):
-    """Detect (bg-sub) -> bridge -> FSM on one shot's frames. Returns artifacts + outcome."""
-    cands = detect_ball_bgsub(frames_slice, scale)
+def process_shot(frames_slice, rim_ellipse, fps=60.0):
+    """Detect (bg-sub) -> bridge -> FSM on one shot's frames, all in frame pixel space."""
+    cands = detect_ball_bgsub(frames_slice, 1.0)   # candidates stay in frame px
     times = np.arange(len(frames_slice)) / fps
     br = bridge_trajectory(cands, times, method="l1")
     fsm = ShotFSM(rim_ellipse)
@@ -55,12 +63,11 @@ def process_shot(frames_slice, scale, rim_ellipse, fps=60.0):
 def run_demo(assets_dir: str | Path):
     """Run the full pipeline over every shot in the demo clip; return a rich result dict."""
     frames, meta, rim, H_img_to_court, court = load_demo(assets_dir)
-    scale = meta["scale"]
     per_shot = []
     report = SessionReport()
     for sm in meta["shots"]:
         fs = frames[sm["frame_start"]:sm["frame_end"]]
-        art = process_shot(fs, scale, rim)
+        art = process_shot(fs, rim)
         out = art["outcome"]
         # LIFT: map the (ground-truth, in this synthetic demo) shooter position to court.
         feet_court = np.array(sm["gt_shooter_xy"])       # synthetic demo uses GT feet; Stage B tracks the shooter

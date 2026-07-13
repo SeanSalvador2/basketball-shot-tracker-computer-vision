@@ -1,0 +1,111 @@
+{
+  "fps": 60,
+  "scale": 0.4,
+  "n_frames": 723,
+  "camera": {
+    "azimuth_deg": 55,
+    "height_m": 1.5,
+    "distance_m": 9.0,
+    "width_px": 1920,
+    "height_px": 1080
+  },
+  "rim_ellipse": {
+    "cx": 960.0000000009738,
+    "cy": 245.91142996659107,
+    "a": 36.391297090515174,
+    "b": 6.30094955211316,
+    "theta_deg": 179.9999999838307
+  },
+  "H_court_to_img": [
+    [
+      3.36077276305651,
+      189.73989349684405,
+      960.0
+    ],
+    [
+      -44.58341798625045,
+      31.217645353126926,
+      728.7193630637212
+    ],
+    [
+      -0.09051403804298251,
+      0.0633786117514968,
+      1.0
+    ]
+  ],
+  "court_spec": "nba",
+  "shots": [
+    {
+      "frame_start": 0,
+      "frame_end": 136,
+      "gt_outcome": "make",
+      "gt_zone": "3PT",
+      "gt_shooter_xy": [
+        1.4246762199340304,
+        8.47061215373874
+      ],
+      "gt_release_t": 0.5,
+      "gt_rim_t": 1.7489686461767004
+    },
+    {
+      "frame_start": 136,
+      "frame_end": 252,
+      "gt_outcome": "miss",
+      "gt_zone": "midrange",
+      "gt_shooter_xy": [
+        -2.676399970430605,
+        3.4569745727820282
+      ],
+      "gt_release_t": 0.5,
+      "gt_rim_t": 1.4156091823380785
+    },
+    {
+      "frame_start": 252,
+      "frame_end": 333,
+      "gt_outcome": "make",
+      "gt_zone": "short-range",
+      "gt_shooter_xy": [
+        0.6588001135783791,
+        1.2282323290641832
+      ],
+      "gt_release_t": 0.5,
+      "gt_rim_t": 0.8390548102706401
+    },
+    {
+      "frame_start": 333,
+      "frame_end": 476,
+      "gt_outcome": "miss",
+      "gt_zone": "3PT",
+      "gt_shooter_xy": [
+        5.436303581043857,
+        5.463869262949788
+      ],
+      "gt_release_t": 0.5,
+      "gt_rim_t": 1.8595056127066691
+    },
+    {
+      "frame_start": 476,
+      "frame_end": 586,
+      "gt_outcome": "make",
+      "gt_zone": "midrange",
+      "gt_shooter_xy": [
+        -0.8480254394963043,
+        4.183208268313539
+      ],
+      "gt_release_t": 0.5,
+      "gt_rim_t": 1.3175497658144435
+    },
+    {
+      "frame_start": 586,
+      "frame_end": 723,
+      "gt_outcome": "miss",
+      "gt_zone": "3PT",
+      "gt_shooter_xy": [
+        -3.607327094317482,
+        7.4528699665682
+      ],
+      "gt_release_t": 0.5,
+      "gt_rim_t": 1.765283731887958
+    }
+  ]
+}

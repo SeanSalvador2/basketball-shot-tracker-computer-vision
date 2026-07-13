@@ -28,7 +28,7 @@ from bball.synth.physics import generate_shot, sample_release_params  # noqa: E4
 ASSETS = REPO / "notebooks" / "assets"
 
 
-def build(seed: int = 20260713, n_shots: int = 6, scale: float = 0.5,
+def build(seed: int = 20260713, n_shots: int = 6, scale: float = 0.4,
           azimuth_deg: float = 55, height_m: float = 1.5) -> None:
     rng = np.random.default_rng(seed)
     scene = venue_scene("gym_A", azimuth_deg=azimuth_deg, height_m=height_m)
@@ -40,7 +40,7 @@ def build(seed: int = 20260713, n_shots: int = 6, scale: float = 0.5,
     specs = [
         ShotSpec("3PT", "center", "make"),
         ShotSpec("midrange", "left", "miss", "left"),
-        ShotSpec("short-range", "center", "make"),
+        ShotSpec("short-range", "right", "make"),
         ShotSpec("3PT", "right", "miss", "long"),
         ShotSpec("midrange", "center", "make", rattle=True),
         ShotSpec("3PT", "left", "miss", "right"),
