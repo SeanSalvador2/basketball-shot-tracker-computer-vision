@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# Data & artifacts (manifests are committed; payloads are not)
+data/raw/
+data/synthetic/
+data/processed/
+data/external/
+*.mp4
+*.mov
+*.avi
+
+# Experiment tracking & caches
+mlruns/
+outputs/
+.cache/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.mlpackage/
+
+# Notebooks & editors
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+.idea/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
