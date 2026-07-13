@@ -52,7 +52,7 @@ should be avoided (`eda_rim_geometry.png`).
 
 ```bash
 make setup      # venv + pinned deps (torch CPU wheels) + editable install
-make test       # 89 tests: geometry round-trips, FSM scenarios, bridging, leakage guards
+make test       # 100 tests: geometry round-trips, FSM scenarios, bridging, leakage guards
 make demo       # execute notebooks/demo.ipynb end-to-end on the bundled synthetic clip
 make eda        # regenerate every EDA figure
 make ablations  # re-run the ablation suite (MLflow file store + committed exports)
@@ -87,7 +87,7 @@ src/bball/      pipeline package: detect / track / lift / events / heads / synth
 configs/        experiment configs (every experiment is a committed config)
 scripts/        ablation runner, demo builders, Stage-B data downloaders
 notebooks/      end-to-end demo notebook (`make demo`) + bundled synthetic clip
-tests/          89 tests: geometry, events, tracking, synth, eval, leakage guards
+tests/          100 tests: geometry, events, tracking, synth, eval, leakage guards
 mlruns-export/  committed CSV/JSON summaries of tracked runs (MLflow IDs inside)
 ```
 

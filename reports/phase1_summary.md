@@ -9,7 +9,7 @@ footage. **Every number below is regime S (synthetic)** unless explicitly marked
 | Gate | Requirement | Status | Evidence |
 |---|---|---|---|
 | G1 | End-to-end run on a clip via one command producing the session report | **PASS** (synthetic clip; no calibrated real clip was obtainable in-container) | `make demo` executes `notebooks/demo.ipynb` top-to-bottom: bundled clip → bg-sub detection → bridged track → FSM → shot chart + session summary |
-| G2 | Unit tests green on geometry/FSM/bridging incl. rebound double-count and multi-ball | **PASS** | 89/89 tests; scripted scenarios: clean make, 4 miss directions, rattle-in, shooter's roll, rim-out, put-back (two attempts, no double count), lob-pass negative, multi-ball distractor, occluded make |
+| G2 | Unit tests green on geometry/FSM/bridging incl. rebound double-count and multi-ball | **PASS** | 100/100 tests (incl. 11 heads-scaffold harness tests); scripted scenarios: clean make, 4 miss directions, rattle-in, shooter's roll, rim-out, put-back (two attempts, no double count), lob-pass negative, multi-ball distractor, occluded make |
 | G3 | Non-droppable ablations (A1, A5, A6, A7, A9) tracked in MLflow with committed figures | **PASS** (+ A8) | `mlruns-export/*.csv|json` (run IDs inside), `reports/figures/ablations/*.png`, configs in `configs/ablations/` |
 | G4 | Sim parameters traceable to cited physics | **PASS** | Constants cited in `synth/physics.py` (g, rim 3.048 m/0.4572 m, ball 0.24 m, release 6–9 m/s / 45–55°); EDA trajectory audit confirms apex/flight-time plausibility; deviations (close-shot steepening) documented |
 | G5 | Every report figure regenerable from committed config + seed | **PASS** | `docs/REPRODUCING.md` maps each figure → command; seeds fixed in configs |

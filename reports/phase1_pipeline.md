@@ -37,7 +37,7 @@ procedural renderer + detection-noise model, session/negative generators), `eval
 (tolerance-matched event PRF, FP/hour, T3 cm, zone confusion, per-axis T5, leakage-guarded
 splits with val-tune/val-cal, per-session bootstrap, failure galleries), `viz/`, `ablations/`
 (A1, A5–A9 with MLflow tracking + committed exports), `pipeline.py`/`demo.py` (end-to-end
-orchestration), 89 unit tests.
+orchestration), 100 unit tests.
 
 ## 2. Design decisions that survived contact with implementation
 
@@ -95,7 +95,7 @@ Stage-B sanity-check material, not demo material — the demo states this plainl
 
 ## 5. What Stage B inherits
 
-Runnable, tested machinery: the full package + 89 tests + `make test/demo/eda/ablations`;
+Runnable, tested machinery: the full package + 100 tests + `make test/demo/eda/ablations`;
 the collection protocol (`docs/DATA_PROTOCOL.md`) with the metadata sheet and negative-block
 design; downloader scripts with license gates; leakage-guarded splits with val-tune/val-cal;
 an FSM whose parameter surface is a plateau (A8) and a calibrator choice (Platt) already

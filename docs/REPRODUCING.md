@@ -2,7 +2,7 @@
 
 One command per artifact. All seeds are fixed in the committed configs; runs log to the
 MLflow file store (`mlruns/`, gitignored) and export committed summaries to
-`mlruns-export/`. Setup once: `make setup && make test` (89 tests).
+`mlruns-export/`. Setup once: `make setup && make test` (100 tests).
 
 > Container note: the Stage-A build container firewalls `download.pytorch.org`; on such a
 > network install torch from PyPI instead (see `reports/phase1_pipeline.md` D1). On any
