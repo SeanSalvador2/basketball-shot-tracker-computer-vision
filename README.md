@@ -22,6 +22,8 @@ capture is **record-then-process**, so inference cost is a budget, not a wall.
 | Project plan (full DS lifecycle, ablation matrix, staged execution) | ✅ complete (v1.1) | [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) |
 | Adversarial plan review (12 findings → revisions) | ✅ complete | [`docs/PLAN_REVIEW.md`](docs/PLAN_REVIEW.md) |
 | **Phase 1 · Stage A** — pipeline, synthetic engine, ablations (CPU container) | ✅ **complete** | [`reports/phase1_summary.md`](reports/phase1_summary.md) |
+| Phase 1 consolidated final report (start here after this README) | ✅ complete | [`reports/phase1_final_report.md`](reports/phase1_final_report.md) |
+| Configurable shot-zone system (presets / parametric / screen-drawn) | ✅ complete | [`docs/ZONES.md`](docs/ZONES.md) |
 | Phase 1 · Stage B — real footage, detector fine-tuning, cross-venue numbers | next (runbook ready) | [`docs/DATA_PROTOCOL.md`](docs/DATA_PROTOCOL.md) |
 | Phase 2 — On-device deployment (Core ML, iPhone) | outlined | plan §9.2 |
 
@@ -41,6 +43,8 @@ that discipline is the point. Full analysis:
 | Miss-direction accuracy vs camera placement (headline curve) | axes **trade** with azimuth — L/R 0.96@15°→0.75@90°, S/L 0.74@30°→1.00@90°; **45–60° balances both** | S | A6 |
 | Probability calibration on a held-out venue | Platt cuts ECE **0.117→0.027** (−77%); temperature scaling fails on FSM margins (negative result, kept) | S | A9 |
 | End-to-end demo, zero downloaded weights | **5/6** shots correct; the miss is a narrated point-blank visibility case | S | `make demo` |
+| COCO-pretrained detector on synthetic renders vs real images | **0.0 ball recall on renders at any resolution** (stylized synthetic cannot evaluate a real detector — the regime-label discipline, proven); zero-shot on real images: ball fire-rate 0.30–0.35, person 0.95 | S + R-zeroshot | A3 |
+| Player-tracker sophistication in the waypoint sim | greedy-IoU **0.715** HOTA vs Kalman+IoU 0.578 (hard direction changes break constant-velocity); simplified HOTA, real footage arbitrates | S | A4 |
 
 Figure highlights: `reports/figures/ablations/a6_azimuth_sweep.png` (the camera-placement
 guide), `a7_error_isolines.png` (court error map), `a8_fsm_sensitivity.png`,
@@ -52,7 +56,7 @@ should be avoided (`eda_rim_geometry.png`).
 
 ```bash
 make setup      # venv + pinned deps (torch CPU wheels) + editable install
-make test       # 100 tests: geometry round-trips, FSM scenarios, bridging, leakage guards
+make test       # 120 tests: geometry round-trips, FSM scenarios, bridging, zones, leakage guards
 make demo       # execute notebooks/demo.ipynb end-to-end on the bundled synthetic clip
 make eda        # regenerate every EDA figure
 make ablations  # re-run the ablation suite (MLflow file store + committed exports)
@@ -75,7 +79,12 @@ Every figure/number maps to one command: [`docs/REPRODUCING.md`](docs/REPRODUCIN
 - **Evaluation discipline:** session-level splits (never random frames), a held-out
   cross-venue test set, val-tune/val-cal separation, calibrated probabilities (reliability
   diagrams, ECE, Brier), per-session bootstrap CIs, and registered hypotheses — including
-  the ones the data rejected (A9's temperature scaling; A5's Level-2 bridging).
+  the ones the data rejected (A9's temperature scaling; A5's Level-2 bridging; A6's
+  flat-left/right assumption).
+- **Zones are a view, not a measurement:** shot positions are stored continuously; user
+  taxonomies (presets, parametric bounds, screen-drawn regions lifted to court space) re-bucket
+  history instantly, with per-boundary reliability scored against the calibration error model
+  ([`docs/ZONES.md`](docs/ZONES.md)).
 
 ## Repository map
 
@@ -85,9 +94,9 @@ reports/        phase reports + figures (EDA, ablations)
 src/bball/      pipeline package: detect / track / lift / events / heads / synth /
                 eval / viz / ablations
 configs/        experiment configs (every experiment is a committed config)
-scripts/        ablation runner, demo builders, Stage-B data downloaders
+scripts/        ablation runner, demo builders, event-review CLI, Stage-B data downloaders
 notebooks/      end-to-end demo notebook (`make demo`) + bundled synthetic clip
-tests/          100 tests: geometry, events, tracking, synth, eval, leakage guards
+tests/          120 tests: geometry, events, tracking, synth, zones, eval, leakage guards
 mlruns-export/  committed CSV/JSON summaries of tracked runs (MLflow IDs inside)
 ```
 
