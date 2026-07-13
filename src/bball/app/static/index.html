@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Shot Tracker Workbench</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<meta name="theme-color" content="#15391f">
+</head>
+<body>
+<header>
+  <h1>🏀 Shot Tracker <span>workbench</span></h1>
+  <nav id="tabs">
+    <button data-tab="session" class="active">Session</button>
+    <button data-tab="calibrate">Calibrate</button>
+    <button data-tab="review">Review</button>
+    <button data-tab="zones">Zones</button>
+    <button data-tab="results">Results</button>
+  </nav>
+</header>
+
+<main>
+<section id="tab-session" class="tab active">
+  <h2>1 · Load a session video</h2>
+  <div class="row">
+    <input id="video-path" placeholder="/absolute/path/to/session.mp4 (server-side path)">
+    <button id="btn-path">Open path</button>
+  </div>
+  <div class="row"><label class="file"><input type="file" id="video-file" accept="video/*">or upload a file…</label></div>
+  <div class="row"><label>Court spec
+    <select id="court-spec"><option>nba</option><option>fiba</option><option>hs</option></select>
+  </label></div>
+  <div id="session-info" class="card muted">no session yet</div>
+  <h3>Existing sessions</h3><div id="session-list" class="card"></div>
+</section>
+
+<section id="tab-calibrate" class="tab">
+  <h2>2 · Calibrate (tap landmarks) & annotate the rim</h2>
+  <div class="row">
+    <input type="range" id="cal-time" min="0" max="10" step="0.1" value="0">
+    <span id="cal-time-label">0.0s</span>
+    <button id="btn-mode-cal" class="active">landmark mode</button>
+    <button id="btn-mode-rim">rim mode</button>
+  </div>
+  <div class="row">
+    <select id="landmark-select"></select>
+    <button id="btn-undo">undo point</button>
+    <button id="btn-calibrate">Calibrate (≥4 pts)</button>
+    <button id="btn-fit-rim">Fit rim (≥5 pts)</button>
+  </div>
+  <canvas id="cal-canvas" width="1280" height="720"></canvas>
+  <div id="cal-status" class="card muted">click landmarks on the frame; pick each name first</div>
+</section>
+
+<section id="tab-review" class="tab">
+  <h2>3 · Review & label proposed shots</h2>
+  <div class="row">
+    <button id="btn-analyze">Run analysis (proposals)</button>
+    <button id="btn-add-missed">+ add missed shot @ current time</button>
+    <button id="btn-save-labels" class="primary">Save labels.csv</button>
+    <span id="review-status" class="muted"></span>
+  </div>
+  <video id="review-video" controls preload="metadata"></video>
+  <div id="event-list"></div>
+</section>
+
+<section id="tab-zones" class="tab">
+  <h2>4 · Zones — presets, tweaks, or draw your own</h2>
+  <div class="row">
+    <select id="zone-preset"><option value="basic3">basic3</option>
+      <option value="extended">extended</option><option value="spots">spots</option>
+      <option value="polygons">custom (draw)</option></select>
+    <span id="zone-params"></span>
+    <button id="btn-zone-apply" class="primary">Apply to session</button>
+  </div>
+  <div class="row muted" id="zone-draw-help" style="display:none">
+    click the court to add polygon vertices · double-click to close & name the zone
+  </div>
+  <canvas id="zone-canvas" width="760" height="820"></canvas>
+  <div id="zone-status" class="card muted"></div>
+</section>
+
+<section id="tab-results" class="tab">
+  <h2>5 · Results</h2>
+  <button id="btn-refresh-results">Refresh</button>
+  <div id="results-summary" class="card"></div>
+  <canvas id="chart-canvas" width="760" height="820"></canvas>
+  <table id="zone-table"></table>
+</section>
+</main>
+
+<footer class="muted">local workbench · phone: open this address on the same network ·
+native iOS app = Phase 2</footer>
+<script src="app.js"></script>
+</body>
+</html>

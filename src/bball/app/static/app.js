@@ -1,0 +1,369 @@
+/* Shot Tracker Workbench — vanilla JS, no build step.
+   State flows: session -> calibrate (H + rim) -> analyze -> review/labels -> zones -> results. */
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const api = async (url, opts) => {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`);
+  const ct = r.headers.get("content-type") || "";
+  return ct.includes("json") ? r.json() : r;
+};
+const jpost = (url, body) => api(url, {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+const S = {           // client state
+  sid: null, probe: null, spec: "nba", court: null,
+  calPoints: [], rimPoints: [], mode: "cal", overlay: null, rimPoly: null,
+  labels: [], partition: null, zonePreview: null, drawPoly: [], customZones: {},
+};
+
+/* ---------------- tabs ---------------- */
+document.querySelectorAll("#tabs button").forEach((b) =>
+  b.addEventListener("click", () => {
+    document.querySelectorAll("#tabs button, .tab").forEach((e) => e.classList.remove("active"));
+    b.classList.add("active");
+    $(`tab-${b.dataset.tab}`).classList.add("active");
+    if (b.dataset.tab === "calibrate") drawCal();
+    if (b.dataset.tab === "zones") refreshZoneUI();
+    if (b.dataset.tab === "results") refreshResults().catch(console.warn);
+  }));
+
+/* ---------------- session ---------------- */
+async function loadCourt() { S.court = await api(`/api/court?spec=${S.spec}`); }
+
+function setSession(state) {
+  S.sid = state.sid; S.probe = state.probe; S.spec = state.spec || "nba";
+  S.partition = state.partition || null;
+  $("session-info").textContent =
+    `session ${state.sid} · ${state.probe.duration_s.toFixed(1)}s @ ${state.probe.fps.toFixed(0)}fps ` +
+    `· ${state.probe.w}x${state.probe.h} · calibrated: ${!!state.calibration} · rim: ${!!state.rim}`;
+  $("cal-time").max = Math.max(1, state.probe.duration_s - 0.05);
+  $("review-video").src = `/api/sessions/${S.sid}/video`;
+  loadCourt().then(() => { fillLandmarks(); drawCal(); });
+}
+
+$("btn-path").onclick = async () => {
+  const state = await jpost("/api/sessions", { video_path: $("video-path").value.trim() });
+  setSession(state); listSessions();
+};
+$("video-file").onchange = async (e) => {
+  const fd = new FormData(); fd.append("file", e.target.files[0]);
+  const state = await api("/api/sessions", { method: "POST", body: fd });
+  setSession(state); listSessions();
+};
+$("court-spec").onchange = (e) => { S.spec = e.target.value; loadCourt().then(fillLandmarks); };
+
+async function listSessions() {
+  const xs = await api("/api/sessions");
+  $("session-list").innerHTML = xs.length ? "" : "none yet";
+  xs.forEach((s) => {
+    const b = document.createElement("button");
+    b.textContent = `${s.sid} ${s.calibrated ? "📐" : ""}${s.rim ? "⭕" : ""}`;
+    b.onclick = async () => setSession(await api(`/api/sessions/${s.sid}`));
+    $("session-list").appendChild(b);
+  });
+}
+listSessions().catch(console.warn);
+
+/* ---------------- calibrate ---------------- */
+function fillLandmarks() {
+  if (!S.court) return;
+  const sel = $("landmark-select"); sel.innerHTML = "";
+  Object.keys(S.court.landmarks).forEach((k) => {
+    const o = document.createElement("option"); o.value = k;
+    o.textContent = `${k} (${S.court.landmarks[k][0].toFixed(1)}, ${S.court.landmarks[k][1].toFixed(1)})`;
+    sel.appendChild(o);
+  });
+}
+
+const calCanvas = $("cal-canvas"), calCtx = calCanvas.getContext("2d");
+let calImg = new Image(), calScale = { sx: 1, sy: 1 };
+
+function frameURL(t) { return `/api/sessions/${S.sid}/frame?t=${t}&maxw=1280`; }
+
+function drawCal() {
+  if (!S.sid) return;
+  const t = parseFloat($("cal-time").value);
+  $("cal-time-label").textContent = `${t.toFixed(1)}s`;
+  calImg = new Image();
+  calImg.onload = () => {
+    calCanvas.width = calImg.width; calCanvas.height = calImg.height;
+    calScale.sx = calImg.width / S.probe.w; calScale.sy = calImg.height / S.probe.h;
+    calCtx.drawImage(calImg, 0, 0);
+    if (S.overlay) {
+      calCtx.lineWidth = 2;
+      for (const [name, poly] of Object.entries(S.overlay)) {
+        calCtx.strokeStyle = name === "three" ? "#7CFC00" : "#00d5ff";
+        strokePoly(calCtx, poly.map((p) => [p[0] * calScale.sx, p[1] * calScale.sy]));
+      }
+    }
+    if (S.rimPoly) {
+      calCtx.strokeStyle = "#ff4444"; calCtx.lineWidth = 2;
+      strokePoly(calCtx, S.rimPoly.map((p) => [p[0] * calScale.sx, p[1] * calScale.sy]), true);
+    }
+    S.calPoints.forEach((p) => dot(calCtx, p.img[0] * calScale.sx, p.img[1] * calScale.sy, "#ffd700", p.name));
+    S.rimPoints.forEach((p) => dot(calCtx, p[0] * calScale.sx, p[1] * calScale.sy, "#ff4444"));
+  };
+  calImg.src = frameURL(t);
+}
+function strokePoly(ctx, pts, close) {
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+  if (close) ctx.closePath(); ctx.stroke();
+}
+function dot(ctx, x, y, color, label) {
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill();
+  if (label) { ctx.font = "12px sans-serif"; ctx.fillText(label, x + 7, y - 5); }
+}
+
+$("cal-time").oninput = drawCal;
+$("btn-mode-cal").onclick = () => setMode("cal");
+$("btn-mode-rim").onclick = () => setMode("rim");
+function setMode(m) {
+  S.mode = m;
+  $("btn-mode-cal").classList.toggle("active", m === "cal");
+  $("btn-mode-rim").classList.toggle("active", m === "rim");
+}
+$("btn-undo").onclick = () => { (S.mode === "cal" ? S.calPoints : S.rimPoints).pop(); drawCal(); };
+
+calCanvas.addEventListener("click", (e) => {
+  if (!S.sid) return;
+  const r = calCanvas.getBoundingClientRect();
+  const x = ((e.clientX - r.left) * (calCanvas.width / r.width)) / calScale.sx;
+  const y = ((e.clientY - r.top) * (calCanvas.height / r.height)) / calScale.sy;
+  if (S.mode === "cal") {
+    const name = $("landmark-select").value;
+    S.calPoints = S.calPoints.filter((p) => p.name !== name);
+    S.calPoints.push({ name, img: [x, y], court: S.court.landmarks[name] });
+    const opts = $("landmark-select").options;
+    const i = [...opts].findIndex((o) => o.value === name);
+    if (i < opts.length - 1) $("landmark-select").selectedIndex = i + 1;
+  } else S.rimPoints.push([x, y]);
+  drawCal();
+});
+
+$("btn-calibrate").onclick = async () => {
+  const res = await jpost(`/api/sessions/${S.sid}/calibrate`,
+    { spec: S.spec, points: S.calPoints });
+  S.overlay = res.overlay_img;
+  $("cal-status").textContent =
+    `calibrated: rms ${res.rms_px.toFixed(2)} px over ${res.n_points} pts ` +
+    `(${res.n_inliers} inliers) — green/blue lines should hug the paint & 3PT line; ` +
+    `re-click any landmark that looks off`;
+  drawCal();
+};
+$("btn-fit-rim").onclick = async () => {
+  const res = await jpost(`/api/sessions/${S.sid}/rim`, { points: S.rimPoints });
+  S.rimPoly = res.polyline;
+  $("cal-status").textContent = "rim fitted — red ellipse should trace the rim";
+  drawCal();
+};
+
+/* ---------------- review ---------------- */
+$("btn-analyze").onclick = async () => {
+  $("review-status").textContent = "analyzing… (bg-sub spine; grab a coffee for long clips)";
+  try {
+    const res = await jpost(`/api/sessions/${S.sid}/analyze`, {});
+    $("review-status").textContent = `${res.shots.length} proposals from ${res.n_frames} frames`;
+    await loadLabels();
+  } catch (err) { $("review-status").textContent = err.message; }
+};
+
+async function loadLabels() {
+  const res = await api(`/api/sessions/${S.sid}/labels`);
+  S.labels = res.rows.map((r) => ({ ...r }));
+  renderEvents();
+}
+
+const OUTCOMES = ["make", "miss"], DIRS = ["", "short", "long", "left", "right", "short-left", "short-right", "long-left", "long-right"];
+const TYPES = ["", "catch-and-shoot", "pull-up", "other"], QUAL = ["", "swish", "rim-in", "rattle"];
+
+function renderEvents() {
+  const el = $("event-list"); el.innerHTML = "";
+  S.labels.forEach((row, i) => {
+    const d = document.createElement("div");
+    d.className = `event ${row.verified || ""}`;
+    d.innerHTML = `<b>#${row.shot_id}</b> <button class="seek">▶ ${(+row.t_release_s || 0).toFixed(1)}s</button>`;
+    d.appendChild(select(OUTCOMES, row.outcome, (v) => edit(i, "outcome", v)));
+    d.appendChild(select(DIRS, row.miss_direction, (v) => edit(i, "miss_direction", v), "dir"));
+    d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
+    d.appendChild(select(QUAL, row.make_quality, (v) => edit(i, "make_quality", v), "quality"));
+    const zone = document.createElement("span");
+    zone.className = "muted"; zone.textContent = row.zone ? ` zone: ${row.zone}` : " zone: —";
+    d.appendChild(zone);
+    const ex = document.createElement("button");
+    ex.textContent = row.verified === "excluded" ? "excluded" : "✕ exclude";
+    ex.onclick = () => { row.verified = row.verified === "excluded" ? "corrected" : "excluded"; renderEvents(); };
+    d.appendChild(ex);
+    d.querySelector(".seek").onclick = () => {
+      $("review-video").currentTime = Math.max(0, (+row.t_release_s || 0) - 2);
+      $("review-video").play();
+    };
+    el.appendChild(d);
+  });
+}
+function select(opts, val, on, label) {
+  const s = document.createElement("select");
+  opts.forEach((o) => { const e = document.createElement("option"); e.value = o; e.textContent = o || (label ? `(${label})` : "(—)"); s.appendChild(e); });
+  s.value = val || ""; s.onchange = () => on(s.value);
+  return s;
+}
+function edit(i, k, v) { S.labels[i][k] = v; if (!S.labels[i].verified) S.labels[i].verified = "corrected"; }
+
+$("btn-add-missed").onclick = () => {
+  const t = $("review-video").currentTime;
+  S.labels.push({ shot_id: S.labels.length, t_release_s: t.toFixed(2), t_rim_s: (t + 1.5).toFixed(2),
+    outcome: "make", zone: "", spot_id: "", shot_type: "", miss_direction: "", make_quality: "",
+    court_x_m: "", court_y_m: "", verified: "corrected", source: "manual" });
+  renderEvents();
+};
+$("btn-save-labels").onclick = async () => {
+  S.labels.forEach((r) => { if (!r.verified) r.verified = "accepted"; });
+  const res = await jpost(`/api/sessions/${S.sid}/labels`, { rows: S.labels });
+  $("review-status").textContent = `saved ${res.n} rows → ${res.saved}`;
+};
+
+/* ---------------- zones ---------------- */
+const zoneCanvas = $("zone-canvas"), zctx = zoneCanvas.getContext("2d");
+const PARAM_DEFS = {
+  basic3: [["interior_radius_m", "interior radius (m)", 2.13]],
+  extended: [["interior_radius_m", "interior (m)", 2.13], ["mid_split_radius_m", "mid split (m)", 5.2],
+    ["deep_three_offset_m", "deep-3 offset (m)", 0.9]],
+  spots: [["interior_radius_m", "interior (m)", 2.13], ["corner_angle_deg", "corner ∠°", 27],
+    ["wing_angle_deg", "wing ∠°", 65]],
+  polygons: [],
+};
+
+function courtToCanvas(p) {
+  const c = S.court, m = 30;                       // margin px
+  const w = zoneCanvas.width - 2 * m;
+  const scale = w / (2 * c.sideline_x_m);
+  const x = m + (p[0] + c.sideline_x_m) * scale;
+  const y = zoneCanvas.height - m - (p[1] + c.rim_from_baseline_m) * scale;
+  return [x, y];
+}
+function canvasToCourt(x, y) {
+  const c = S.court, m = 30;
+  const scale = (zoneCanvas.width - 2 * m) / (2 * c.sideline_x_m);
+  return [(x - m) / scale - c.sideline_x_m,
+          (zoneCanvas.height - m - y) / scale - c.rim_from_baseline_m];
+}
+
+function drawZoneCanvas(part) {
+  if (!S.court) return;
+  const c = S.court;
+  zctx.fillStyle = "#f7f3e8"; zctx.fillRect(0, 0, zoneCanvas.width, zoneCanvas.height);
+  zctx.strokeStyle = "#222"; zctx.lineWidth = 2;
+  strokePoly(zctx, [[-c.sideline_x_m, -c.rim_from_baseline_m], [c.sideline_x_m, -c.rim_from_baseline_m],
+    [c.sideline_x_m, c.halfcourt_y_m], [-c.sideline_x_m, c.halfcourt_y_m]].map(courtToCanvas), true);
+  strokePoly(zctx, S.court.three.map(courtToCanvas));
+  zctx.strokeStyle = "#888"; strokePoly(zctx, S.court.paint.map(courtToCanvas), true);
+  const rim = courtToCanvas([0, 0]);
+  dot(zctx, rim[0], rim[1], "#c1272d");
+  if (part) {
+    zctx.lineWidth = 1.6;
+    Object.entries(part.boundaries).forEach(([name, poly], i) => {
+      zctx.strokeStyle = ["#1a7837", "#4393c3", "#e08214", "#9944aa"][i % 4];
+      strokePoly(zctx, poly.map(courtToCanvas));
+    });
+  }
+  Object.entries(S.customZones).forEach(([name, poly]) => {
+    zctx.strokeStyle = "#9944aa"; zctx.lineWidth = 2;
+    strokePoly(zctx, poly.map(courtToCanvas), true);
+    const c0 = courtToCanvas(poly[0]); zctx.fillStyle = "#9944aa";
+    zctx.fillText(name, c0[0] + 4, c0[1] - 4);
+  });
+  if (S.drawPoly.length) {
+    zctx.strokeStyle = "#cc0077"; zctx.lineWidth = 1.5;
+    strokePoly(zctx, S.drawPoly.map(courtToCanvas));
+    S.drawPoly.forEach((p) => { const q = courtToCanvas(p); dot(zctx, q[0], q[1], "#cc0077"); });
+  }
+}
+
+function currentPartitionSpec() {
+  const mode = $("zone-preset").value;
+  if (mode === "polygons")
+    return { mode: "polygons", name: "custom", default_zone: "other", polygons: S.customZones };
+  const spec = { mode, court: S.spec };
+  PARAM_DEFS[mode].forEach(([k]) => { spec[k] = parseFloat($(`param-${k}`).value); });
+  return spec;
+}
+
+async function refreshZoneUI() {
+  if (!S.court) await loadCourt();
+  const mode = $("zone-preset").value;
+  $("zone-draw-help").style.display = mode === "polygons" ? "" : "none";
+  const box = $("zone-params"); box.innerHTML = "";
+  PARAM_DEFS[mode].forEach(([k, label, dflt]) => {
+    const l = document.createElement("label");
+    l.innerHTML = `${label} <input id="param-${k}" type="number" step="0.05" value="${dflt}">`;
+    box.appendChild(l);
+    l.querySelector("input").onchange = refreshPreview;
+  });
+  await refreshPreview();
+}
+async function refreshPreview() {
+  const spec = currentPartitionSpec();
+  if (spec.mode === "polygons" && !Object.keys(S.customZones).length) { drawZoneCanvas(null); return; }
+  try {
+    S.zonePreview = await jpost("/api/zones/preview", spec);
+    drawZoneCanvas(S.zonePreview);
+    $("zone-status").textContent = `zones: ${S.zonePreview.zones.join(", ")}`;
+  } catch (err) { $("zone-status").textContent = err.message; }
+}
+$("zone-preset").onchange = refreshZoneUI;
+
+zoneCanvas.addEventListener("click", (e) => {
+  if ($("zone-preset").value !== "polygons") return;
+  const r = zoneCanvas.getBoundingClientRect();
+  S.drawPoly.push(canvasToCourt((e.clientX - r.left) * (zoneCanvas.width / r.width),
+                                (e.clientY - r.top) * (zoneCanvas.height / r.height)));
+  drawZoneCanvas(S.zonePreview);
+});
+zoneCanvas.addEventListener("dblclick", () => {
+  if ($("zone-preset").value !== "polygons" || S.drawPoly.length < 3) return;
+  const name = prompt("zone name?", `zone-${Object.keys(S.customZones).length + 1}`);
+  if (name) S.customZones[name] = S.drawPoly.slice(0, -1);   // drop dbl-click dup vertex
+  S.drawPoly = [];
+  refreshPreview();
+});
+
+$("btn-zone-apply").onclick = async () => {
+  if (!S.sid) { $("zone-status").textContent = "load a session first"; return; }
+  const res = await jpost(`/api/sessions/${S.sid}/zones`, currentPartitionSpec());
+  S.partition = currentPartitionSpec();
+  $("zone-status").textContent = `applied "${res.name}" to session` +
+    (res.overlay_img ? " — boundaries also projected onto the video frame (Calibrate tab overlay)" : "");
+  if (res.overlay_img) { S.overlay = { ...(S.overlay || {}), ...res.overlay_img }; }
+};
+
+/* ---------------- results ---------------- */
+async function refreshResults() {
+  if (!S.sid) return;
+  const res = await api(`/api/sessions/${S.sid}/results`);
+  $("results-summary").textContent =
+    `partition: ${res.partition} · attempts ${res.attempts} · makes ${res.makes}` +
+    (res.fg_pct != null ? ` · FG ${(100 * res.fg_pct).toFixed(0)}%` : "");
+  if (!S.court) await loadCourt();
+  drawZoneCanvas(S.zonePreview);
+  const cctx = $("chart-canvas").getContext("2d");
+  cctx.drawImage(zoneCanvas, 0, 0);
+  res.chart.forEach((s) => {
+    if (!s.xy) return;
+    const p = courtToCanvas(s.xy);
+    cctx.fillStyle = s.outcome === "make" ? "#1a7837" : "#c1272d";
+    cctx.beginPath(); cctx.arc(p[0], p[1], s.on_line ? 7 : 5, 0, 7); cctx.fill();
+    if (s.on_line) { cctx.strokeStyle = "#e08214"; cctx.lineWidth = 2; cctx.stroke(); }
+  });
+  const t = $("zone-table");
+  t.innerHTML = "<tr><th>zone</th><th>attempts</th><th>makes</th><th>FG%</th></tr>";
+  Object.entries(res.by_zone).forEach(([z, v]) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${z}</td><td>${v.attempts}</td><td>${v.makes}</td>` +
+      `<td>${v.attempts ? (100 * v.makes / v.attempts).toFixed(0) : "—"}%</td>`;
+    t.appendChild(tr);
+  });
+}
+$("btn-refresh-results").onclick = refreshResults;

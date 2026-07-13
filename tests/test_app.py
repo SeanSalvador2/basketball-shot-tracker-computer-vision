@@ -1,0 +1,131 @@
+"""Web workbench API: sessions, frames, calibration round-trip, rim fit, zones, labels, results."""
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+
+import bball.app.server as srv
+from bball.lift.court_model import get_court, landmark_points
+from bball.lift.homography import apply_homography
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(srv, "DATA_ROOT", tmp_path / "app_sessions")
+    return TestClient(srv.app)
+
+
+@pytest.fixture()
+def video(tmp_path):
+    import cv2
+
+    path = tmp_path / "clip.mp4"
+    out = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 20, (320, 240))
+    for i in range(60):
+        frame = np.full((240, 320, 3), 40, np.uint8)
+        cv2.circle(frame, (40 + 3 * i, 120), 6, (0, 120, 255), -1)
+        out.write(frame)
+    out.release()
+    return path
+
+
+def _mksession(client, video):
+    r = client.post("/api/sessions", json={"video_path": str(video)})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_session_create_and_frame(client, video):
+    s = _mksession(client, video)
+    assert s["probe"]["n_frames"] == 60
+    r = client.get(f"/api/sessions/{s['sid']}/frame?t=1.0")
+    assert r.status_code == 200 and r.content[:2] == b"\xff\xd8"  # JPEG magic
+    assert client.get("/api/sessions").json()[0]["sid"] == s["sid"]
+    # range-aware video serving
+    rv = client.get(f"/api/sessions/{s['sid']}/video", headers={"range": "bytes=0-99"})
+    assert rv.status_code == 206 and len(rv.content) == 100
+
+
+def test_court_endpoint(client):
+    c = client.get("/api/court?spec=hs").json()
+    assert c["spec"] == "hs" and "three_apex" in c["landmarks"] and len(c["three"]) > 10
+
+
+def test_calibrate_round_trip(client, video):
+    s = _mksession(client, video)
+    court = get_court("nba")
+    H_true = np.array([[90.0, 4.0, 640.0], [-3.0, -55.0, 600.0], [0.0, 0.004, 1.0]])
+    lms = landmark_points(court)
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right",
+             "three_apex", "corner_three_right"]
+    pts = []
+    for n in names:
+        cxy = lms[n]
+        ixy = apply_homography(H_true, np.atleast_2d(cxy))[0]
+        pts.append({"name": n, "court": cxy.tolist(), "img": ixy.tolist()})
+    r = client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "nba", "points": pts})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert body["rms_px"] < 1e-3 and body["n_inliers"] == len(names)
+    # overlay polylines: projected apex should match H_true's projection
+    state = client.get(f"/api/sessions/{s['sid']}").json()
+    H = np.array(state["calibration"]["H_court2img"])
+    apex_img = apply_homography(H, np.atleast_2d(lms["three_apex"]))[0]
+    apex_true = apply_homography(H_true, np.atleast_2d(lms["three_apex"]))[0]
+    assert np.allclose(apex_img, apex_true, atol=1e-3)
+
+
+def test_rim_fit(client, video):
+    s = _mksession(client, video)
+    tt = np.linspace(0, 2 * np.pi, 9)[:-1]
+    pts = np.stack([200 + 50 * np.cos(tt), 100 + 18 * np.sin(tt)], axis=1)
+    r = client.post(f"/api/sessions/{s['sid']}/rim", json={"points": pts.tolist()})
+    rim = r.json()["rim"]
+    assert r.status_code == 200
+    assert abs(rim["cx"] - 200) < 1e-3 and abs(rim["cy"] - 100) < 1e-3
+    assert abs(max(rim["a"], rim["b"]) - 50) < 0.1 and abs(min(rim["a"], rim["b"]) - 18) < 0.1
+
+
+def test_zones_presets_preview_and_apply(client, video):
+    s = _mksession(client, video)
+    presets = client.get("/api/zones/presets?spec=nba").json()
+    assert {p["name"] for p in presets} == {"basic3", "extended", "spots"}
+    prev = client.post("/api/zones/preview", json={
+        "mode": "extended", "court": "nba", "interior_radius_m": 2.13,
+        "mid_split_radius_m": 5.0, "deep_three_offset_m": 0.8}).json()
+    assert "deep_three_line" in prev["boundaries"]
+    custom = client.post(f"/api/sessions/{s['sid']}/zones", json={
+        "mode": "polygons", "name": "mine", "default_zone": "rest",
+        "polygons": {"left-block": [[-2, 0], [-1, 0], [-1, 1.5], [-2, 1.5]]}}).json()
+    assert "left-block_outline" in custom["boundaries"]
+    assert client.get(f"/api/sessions/{s['sid']}").json()["partition"]["mode"] == "polygons"
+
+
+def test_labels_and_results(client, video):
+    s = _mksession(client, video)
+    rows = [
+        {"shot_id": 0, "t_release_s": 1.0, "t_rim_s": 2.2, "outcome": "make", "zone": "",
+         "spot_id": "", "shot_type": "", "miss_direction": "", "make_quality": "",
+         "court_x_m": 0.0, "court_y_m": 7.5, "verified": "accepted", "source": "pipeline"},
+        {"shot_id": 1, "t_release_s": 5.0, "t_rim_s": 6.0, "outcome": "miss", "zone": "",
+         "spot_id": "", "shot_type": "", "miss_direction": "short", "make_quality": "",
+         "court_x_m": 2.0, "court_y_m": 4.0, "verified": "corrected", "source": "manual"},
+        {"shot_id": 2, "t_release_s": 8.0, "t_rim_s": 9.0, "outcome": "make", "zone": "",
+         "spot_id": "", "shot_type": "", "miss_direction": "", "make_quality": "",
+         "court_x_m": "", "court_y_m": "", "verified": "excluded", "source": "pipeline"},
+    ]
+    r = client.post(f"/api/sessions/{s['sid']}/labels", json={"rows": rows})
+    assert r.status_code == 200 and r.json()["n"] == 3
+    got = client.get(f"/api/sessions/{s['sid']}/labels").json()
+    assert got["saved"] and len(got["rows"]) == 3
+
+    res = client.get(f"/api/sessions/{s['sid']}/results").json()
+    assert res["attempts"] == 2 and res["makes"] == 1          # excluded row dropped
+    assert res["partition"] == "basic3"
+    zones = {c["zone"] for c in res["chart"] if c["xy"]}
+    assert zones == {"three", "midrange"}                      # rebucketted from positions
+
+
+def test_analyze_requires_rim(client, video):
+    s = _mksession(client, video)
+    r = client.post(f"/api/sessions/{s['sid']}/analyze", json={})
+    assert r.status_code == 400 and "rim" in r.json()["detail"]

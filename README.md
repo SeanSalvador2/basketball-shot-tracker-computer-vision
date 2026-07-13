@@ -24,6 +24,8 @@ capture is **record-then-process**, so inference cost is a budget, not a wall.
 | **Phase 1 · Stage A** — pipeline, synthetic engine, ablations (CPU container) | ✅ **complete** | [`reports/phase1_summary.md`](reports/phase1_summary.md) |
 | Phase 1 consolidated final report (start here after this README) | ✅ complete | [`reports/phase1_final_report.md`](reports/phase1_final_report.md) |
 | Configurable shot-zone system (presets / parametric / screen-drawn) | ✅ complete | [`docs/ZONES.md`](docs/ZONES.md) |
+| **Web workbench app** — calibrate / review-label / zone editor / shot chart (PWA, phone-usable) | ✅ complete (`make app`) | [`docs/APP.md`](docs/APP.md) |
+| Native iOS app (on-device Core ML) | Phase 2 (post-checkpoint; needs macOS/Xcode) | plan §9.2 |
 | Phase 1 · Stage B — real footage, detector fine-tuning, cross-venue numbers | next (runbook ready) | [`docs/DATA_PROTOCOL.md`](docs/DATA_PROTOCOL.md) |
 | Phase 2 — On-device deployment (Core ML, iPhone) | outlined | plan §9.2 |
 
@@ -56,7 +58,8 @@ should be avoided (`eda_rim_geometry.png`).
 
 ```bash
 make setup      # venv + pinned deps (torch CPU wheels) + editable install
-make test       # 120 tests: geometry round-trips, FSM scenarios, bridging, zones, leakage guards
+make test       # 128 tests: geometry, FSM scenarios, bridging, zones, app API, leakage guards
+make app        # local web workbench: calibrate / label / draw zones / shot chart (docs/APP.md)
 make demo       # execute notebooks/demo.ipynb end-to-end on the bundled synthetic clip
 make eda        # regenerate every EDA figure
 make ablations  # re-run the ablation suite (MLflow file store + committed exports)

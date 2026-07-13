@@ -1,0 +1,10 @@
+{
+  "name": "Shot Tracker Workbench",
+  "short_name": "ShotTracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ee",
+  "theme_color": "#15391f",
+  "description": "Calibrate, label, and analyze basketball shooting sessions.",
+  "icons": []
+}

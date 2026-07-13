@@ -52,3 +52,6 @@ reports: eda ablations
 clean:
 	rm -rf .pytest_cache **/__pycache__ src/**/__pycache__ outputs/ .cache/
 	find . -name '*.pyc' -delete
+
+app:  ## run the local web workbench (calibrate / label / zones / results)
+	.venv/bin/uvicorn bball.app.server:app --host 0.0.0.0 --port 8000

@@ -174,8 +174,9 @@ version, plan §2.4).
 
 1. Run the Stage-A pipeline on the clip → it **proposes** events + timestamps + make/miss +
    court location.
-2. **Human verifies/corrects** with `scripts/review_events.py` (steps through proposed events;
-   accept or fix outcome/zone/type/direction/quality; writes the labels CSV) and CVAT (boxes).
+2. **Human verifies/corrects** in the **web workbench** (`make app` → Review tab: video seeks
+   to each proposal, fix outcome/direction/type/quality, add missed shots, save `labels.csv`;
+   see `docs/APP.md`) — or the terminal fallback `scripts/review_events.py`. CVAT for boxes.
    Every correction is a training example — active learning is the loop, not a stage.
 3. **Frame-level boxes** for detector fine-tuning via the data engine (plan §0: zero-shot seed
    → SAM 2.1 propagate → verify), targeting 5–10 k frames across the grid. Rim boxes are

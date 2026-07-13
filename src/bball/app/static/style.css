@@ -1,0 +1,35 @@
+:root { --green: #15391f; --accent: #1a7837; --bg: #f6f4ee; --card: #fff; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: #1c1c1c; }
+header { background: var(--green); color: #fff; padding: 10px 14px; position: sticky; top: 0; z-index: 5; }
+h1 { margin: 0 0 8px; font-size: 1.15rem; } h1 span { opacity: .65; font-weight: 400; }
+h2 { font-size: 1.05rem; } h3 { font-size: .95rem; }
+#tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+#tabs button { background: #ffffff22; color: #fff; border: 0; padding: 8px 14px; border-radius: 8px; font-size: .95rem; }
+#tabs button.active { background: #fff; color: var(--green); font-weight: 600; }
+main { padding: 12px; max-width: 1320px; margin: 0 auto; }
+.tab { display: none; } .tab.active { display: block; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+input, select, button { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid #c9c4b4; background: #fff; }
+input[type=range] { flex: 1; min-width: 160px; }
+input#video-path { flex: 1; min-width: 240px; }
+button { cursor: pointer; } button:active { transform: translateY(1px); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.active { outline: 2px solid var(--accent); }
+label.file { border: 1px dashed #b5ae99; padding: 8px 12px; border-radius: 8px; }
+label.file input { display: none; }
+.card { background: var(--card); border: 1px solid #e2ddcd; border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.muted { color: #6d675a; }
+canvas { width: 100%; height: auto; border-radius: 10px; border: 1px solid #d8d2c0; background: #000; touch-action: manipulation; }
+#zone-canvas, #chart-canvas { background: #f7f3e8; max-width: 760px; display: block; }
+video { width: 100%; max-height: 46vh; border-radius: 10px; background: #000; }
+.event { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid #e2ddcd; border-radius: 10px; padding: 6px 10px; margin: 6px 0; }
+.event.excluded { opacity: .45; }
+.event select { padding: 5px 6px; }
+table { border-collapse: collapse; margin: 10px 0; background: #fff; }
+td, th { border: 1px solid #ddd; padding: 6px 12px; text-align: left; }
+footer { text-align: center; padding: 18px 10px 26px; }
+@media (max-width: 700px) {
+  .event { font-size: .85rem; } .event select { max-width: 31vw; }
+  main { padding: 8px; }
+}
