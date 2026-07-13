@@ -60,6 +60,9 @@ the synthetic A6 azimuth curve rather than re-measuring it — a respectable des
 
 ## 2. Variation grid (the ideal — see the tiers above for the solo-collector minimum)
 
+Visual placement guide: `reports/figures/camera_placement_guide.png`
+(`scripts/plot_camera_guide.py` — azimuths, heights, framing, all grounded in A6/A7/EDA).
+
 | Axis | Target coverage |
 |---|---|
 | Venue | ≥ 4: two indoor gyms (different floors), two outdoor (different backboards) |
