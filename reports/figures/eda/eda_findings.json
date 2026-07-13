@@ -1,0 +1,134 @@
+{
+  "ball_size": {
+    "analysis": "ball_size",
+    "figure": "eda_ball_size.png",
+    "per_placement": {
+      "gym_A": {
+        "median_diam_px": 35.627629280780766,
+        "p10_px": 24.09965698490996,
+        "p90_px": 40.34643068482925
+      },
+      "gym_B": {
+        "median_diam_px": 34.321922791638194,
+        "p10_px": 22.806670649316963,
+        "p90_px": 38.33143269700533
+      },
+      "outdoor_A": {
+        "median_diam_px": 38.09843481401203,
+        "p10_px": 26.447174761544158,
+        "p90_px": 45.1095085142471
+      },
+      "outdoor_B": {
+        "median_diam_px": 38.26328997657555,
+        "p10_px": 29.74922225816931,
+        "p90_px": 50.10090108064373
+      }
+    },
+    "consumer": "detector input resolution (A3), heatmap-vs-bbox framing"
+  },
+  "motion_blur": {
+    "analysis": "motion_blur",
+    "figure": "eda_motion_blur.png",
+    "by_fps": {
+      "240fps": {
+        "median_streak_px": 9.307005941885617,
+        "p90_px": 25.585145034999744
+      },
+      "60fps": {
+        "median_streak_px": 37.277017571726454,
+        "p90_px": 97.94703866219864
+      },
+      "30fps": {
+        "median_streak_px": 76.16036148861468,
+        "p90_px": 192.87835047567395
+      }
+    },
+    "consumer": "fps recommendation, blur augmentation realism"
+  },
+  "occlusion": {
+    "analysis": "occlusion",
+    "figure": "eda_occlusion.png",
+    "by_azimuth": [
+      [
+        30,
+        0.2566408338975247
+      ],
+      [
+        45,
+        0.24426721049790517
+      ],
+      [
+        60,
+        0.13211402210603734
+      ],
+      [
+        90,
+        0.08079274188843871
+      ]
+    ],
+    "consumer": "bridging design (A5), collection guidance"
+  },
+  "rim_geometry": {
+    "analysis": "rim_geometry",
+    "figure": "eda_rim_geometry.png",
+    "rows": [
+      {
+        "azimuth": 45,
+        "height_m": 1.5,
+        "a_px": 36.4,
+        "b_px": 6.3,
+        "b_over_a": 0.173
+      },
+      {
+        "azimuth": 45,
+        "height_m": 2.5,
+        "a_px": 36.9,
+        "b_px": 2.3,
+        "b_over_a": 0.062
+      },
+      {
+        "azimuth": 45,
+        "height_m": 3.0,
+        "a_px": 36.8,
+        "b_px": 0.2,
+        "b_over_a": 0.005
+      },
+      {
+        "azimuth": 45,
+        "height_m": 3.5,
+        "a_px": 36.9,
+        "b_px": 1.9,
+        "b_over_a": 0.051
+      },
+      {
+        "azimuth": 45,
+        "height_m": 4.5,
+        "a_px": 36.4,
+        "b_px": 5.9,
+        "b_over_a": 0.162
+      }
+    ],
+    "consumer": "rim-normalized FSM viability; camera-placement guidance (avoid ~rim height)"
+  },
+  "trajectory_stats": {
+    "analysis": "trajectory_stats",
+    "figure": "eda_trajectory_stats.png",
+    "median_apex_m": 3.8249129965664563,
+    "median_flight_s": 0.9687673992986503,
+    "consumer": "synthetic engine parameter grounding; shot-attempt thresholds"
+  },
+  "class_balance": {
+    "analysis": "class_balance",
+    "figure": "eda_class_balance.png",
+    "outcomes": {
+      "miss": 104,
+      "make": 136
+    },
+    "zones": {
+      "midrange": 99,
+      "3PT": 78,
+      "short-range": 63
+    },
+    "consumer": "split stratification; loss weighting"
+  }
+}

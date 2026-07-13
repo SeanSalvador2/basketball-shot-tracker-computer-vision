@@ -1,0 +1,8 @@
+# EDA — analyses run on synthetic sessions across the collection grid (plan §3)
+seed: 7
+n_shots: 60
+placements:
+  - {venue: gym_A,     azimuth_deg: 45, height_m: 3.0}
+  - {venue: gym_B,     azimuth_deg: 30, height_m: 1.5}
+  - {venue: outdoor_A, azimuth_deg: 60, height_m: 3.0}
+  - {venue: outdoor_B, azimuth_deg: 90, height_m: 2.5}
