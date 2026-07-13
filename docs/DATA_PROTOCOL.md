@@ -21,8 +21,11 @@ time you naturally train — two natural variants is plenty; do not schedule aro
 loud right after each shot** — "make", "miss short-left", "rattle in" — the audio track then
 carries time-aligned labels you merely confirm at review; one swish-hunting block, one
 bang-the-rim block) + **5 min non-shooting** (dribble/passing + a few lobs toward
-the rim). Across the 5 sessions vary what is free: ≥ 3 tripod azimuths (~30°, ~45–60°,
-sideline; one elevated if possible — never ≈ rim height), one ball per session, rotating.
+the rim). Across the 5 sessions vary what is free — ≥ 3 placements from the **front arc**
+(corner → up the sideline → half-court; never behind the backboard): diagonal/wing ≈ 45° to
+the lane (**default**), the corner region (90°), and half-court front-center (~15°, elevated
+or laterally offset so the shooter never sits between camera and rim); one placement elevated
+if possible — never ≈ rim height. One ball per session, rotating.
 Tier 1 alone funds detector fine-tuning, real FSM validation, make/miss + location numbers
 with held-out *sessions*, calibration, and first miss-direction results.
 
@@ -68,7 +71,7 @@ Visual placement guide: `reports/figures/camera_placement_guide.png`
 | Venue | ≥ 4: two indoor gyms (different floors), two outdoor (different backboards) |
 | Ball | ≥ 3: leather indoor, rubber outdoor, worn/discolored |
 | Lighting | daylight, dusk, indoor artificial |
-| Camera azimuth | ≈ 15°, 30°, 45°, 60°, 90° (sideline). **45° wing is the recommended default** (both miss axes observable — A6); the sweep exists to *measure* the recommendation |
+| Camera placement (**front arc only**: corner → up the sideline → half-court) | corner region (90° to the lane) · up-the-sideline (~70°) · diagonal/wing (45° — **recommended default**, balances both miss axes per A6) · half-court front-center (~15°, elevated/offset — dead-center-low puts the shooter between camera and rim). **Behind the backboard is excluded** (the board occludes the rim approach). The A6 axis-trade depends on the camera's angle to the shooting lane and is front/back symmetric — the front arc wins on occlusion and standing room; see `reports/figures/camera_placement_guide.png` |
 | Camera height | 1.5 m tripod **and** elevated (≥ ~4 m). Avoid ≈ rim height |
 
 Hold **≥ 1 entire venue** out of all training/tuning — it is the cross-venue test set and the

@@ -34,40 +34,49 @@ def _court(ax):
     return c
 
 
-def _cam_xy(az_deg: float) -> tuple[float, float]:
-    """Camera position at R_CAM from the hoop; azimuth measured off the shooting lane on
-    the behind-the-hoop side (0 = straight behind the backboard, 90 = sideline)."""
-    a = np.deg2rad(az_deg)
-    return R_CAM * np.sin(a), -R_CAM * np.cos(a)
-
-
 def top_down(ax):
-    _court(ax)
-    spots = [
-        (15, "#e08214", "^", "15°\nL/R best (0.96)\nS/L weakest"),
-        (30, "#4393c3", "o", "30°\nL/R 0.93 · S/L 0.74"),
-        (45, "#1a7837", "*", "45°  DEFAULT"),
-        (60, "#1a7837", "*", "60°  DEFAULT\n(45–60° balances both axes)"),
-        (90, "#4393c3", "o", "90° sideline\nS/L perfect (1.00)\nL/R weakest (0.75)"),
+    """Placements live in the FRONT quadrant (corner -> sideline -> half-court): the A6
+    axis-trade depends only on the camera's angle to the shooting lane (front/back
+    symmetric), but the front side keeps the rim approach clear of the backboard and is
+    where space to stand actually exists."""
+    c = _court(ax)
+    ax.plot([-c.sideline_x_m, c.sideline_x_m], [12.73, 12.73], "k-", lw=1.2)  # half-court
+    spots = [  # (x, y, color, marker, label, label_dy_pts)
+        (3.5, 13.6, "#4393c3", "o",
+         "HALF-COURT, front-center (~15° off the lane)\nL/R best (0.96) · S/L weakest\n"
+         "elevate or offset — dead-center at 1.5 m\nputs the shooter between camera and rim", 14),
+        (8.8, 8.8, "#1a7837", "*",
+         "DIAGONAL / wing, 45° to the lane  — DEFAULT\nbalances both axes (A6)", 0),
+        (10.8, 3.9, "#4393c3", "o",
+         "UP THE SIDELINE (FT-line extended, ~70°)\nS/L strong · L/R good", 0),
+        (11.0, 0.0, "#4393c3", "o",
+         "CORNER region (90° to the lane)\nS/L perfect (1.00) · L/R weakest (0.75)", 0),
     ]
-    for az, color, marker, label in spots:
-        x, y = _cam_xy(az)
-        ax.plot(x, y, marker, color=color, ms=16 if marker == "*" else 11,
+    for x, y, color, marker, label, dy in spots:
+        ax.plot(x, y, marker, color=color, ms=17 if marker == "*" else 11,
                 mec="black", mew=0.8, zorder=5)
         ax.plot([0, x], [0, y], ":", color=color, lw=0.9, alpha=0.7)
-        ax.annotate(label, (x, y), textcoords="offset points", xytext=(10, -2),
+        ax.annotate(label, (x, y), textcoords="offset points", xytext=(11, dy),
                     fontsize=8, weight="bold", color=color, va="center")
-    xb, yb_ = _cam_xy(0)
-    ax.plot(xb, yb_, "X", color="#b2182b", ms=13, mec="black", zorder=5)
-    ax.annotate("0° straight behind:\nDON'T (backboard occludes\nthe rim approach)",
-                (xb, yb_), textcoords="offset points", xytext=(-8, -6),
-                fontsize=8, weight="bold", color="#b2182b", ha="right", va="top")
-    ax.annotate("mirroring to the other side is equivalent —\npick whichever side has room",
-                (-7.2, -10.5), fontsize=8, style="italic", color="#555555")
-    ax.set_title("WHERE (top-down) — azimuth off the shooting lane; ~10–13 m from the hoop\n"
-                 "Tier-1 minimum: one session each at ≈30°, 45–60°, 90°", fontsize=10)
-    ax.set_xlim(-12.5, 18.5)
-    ax.set_ylim(-14.5, 13.5)
+    # The excluded quadrant: behind the backboard.
+    ax.fill([-5.5, 5.5, 7.0, -7.0], [-1.7, -1.7, -12.5, -12.5],
+            color="#b2182b", alpha=0.08, zorder=0)
+    ax.plot(0.0, -8.0, "X", color="#b2182b", ms=13, mec="black", zorder=5)
+    ax.annotate("behind the backboard: DON'T\n(the board occludes the rim approach;\n"
+                "rarely space back here anyway)", (0.0, -9.2),
+                fontsize=8.5, weight="bold", color="#b2182b", ha="center", va="top")
+    ax.annotate("angle = camera direction vs the shooting lane.\n"
+                "The A6 axis-trade depends on that angle only\n"
+                "(front/back symmetric) — the front quadrant wins\n"
+                "on occlusion and standing room. Mirroring left/right\n"
+                "is equivalent; reuse the same spots across sessions.",
+                (-12.3, 14.6), fontsize=8, style="italic", color="#555555", va="top")
+    ax.set_title("WHERE (top-down) — film from the FRONT arc: corner → up the sideline → "
+                 "half-court; ~10–14 m from the hoop\nTier-1 minimum: one session each at "
+                 "diagonal 45° (default), corner 90°, half-court front-center (elevated)",
+                 fontsize=10)
+    ax.set_xlim(-12.5, 20.5)
+    ax.set_ylim(-13.5, 15.6)
     ax.set_aspect("equal")
     ax.axis("off")
 
