@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "run_id": "637b00ffef45439b9414ece9019f53bc",
+    "seed": 20260713,
+    "n_shots": 20,
+    "regime": "S (reduced-scale TrackNet)",
+    "render_scale": 0.4
+  },
+  "rows": [
+    {
+      "arm": "bbox+bridge",
+      "track_completeness": 0.855,
+      "t2_f1": 0.333,
+      "n_eval": 10
+    },
+    {
+      "arm": "tracknet",
+      "track_completeness": 0.956,
+      "t2_f1": 0.75,
+      "n_eval": 10
+    },
+    {
+      "arm": "bbox_no_bridge",
+      "track_completeness": 0.531,
+      "t2_f1": 1.0,
+      "n_eval": 10
+    },
+    {
+      "arm": "bgsub_fusion",
+      "track_completeness": 0.983,
+      "t2_f1": 0.75,
+      "n_eval": 10
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# A1 — ball association four arms (TrackNet-lite reduced-scale, regime S)
+seed: 20260713
+azimuth_deg: 55
+height_m: 1.5
+n_shots: 20
+render_scale: 0.4
+tn_h: 96
+tn_w: 160
+tn_ch: 12
+tn_epochs: 10
+torch_threads: 4

@@ -1,0 +1,6 @@
+# A6 — camera azimuth sweep x height -> per-axis T5 accuracy (headline)
+seed: 20260713
+azimuths: [15, 30, 45, 60, 75, 90]
+heights: [1.5, 3.0]
+distance_m: 9.0
+n_per_dir: 60

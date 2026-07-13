@@ -1,0 +1,8 @@
+# A5 — occlusion bridging OFF/L1/L2 x gap length
+seed: 20260713
+gap_lengths: [3, 8, 15, 30]
+methods: [off, l1, l2]
+azimuth_deg: 55
+height_m: 1.5
+distance_m: 9.0
+n_shots: 140

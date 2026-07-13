@@ -1,0 +1,129 @@
+{
+  "meta": {
+    "run_id": "81cb96a50f914637be859cf860dd90e6",
+    "azimuths": [
+      15,
+      30,
+      45,
+      60,
+      75,
+      90
+    ],
+    "heights": [
+      1.5,
+      3.0
+    ],
+    "n_per_dir": 60,
+    "seed": 20260713
+  },
+  "rows": [
+    {
+      "height_m": 1.5,
+      "azimuth_deg": 15,
+      "left_right_acc": 0.958,
+      "short_long_acc": 0.892,
+      "mean_confidence": 0.092,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 1.5,
+      "azimuth_deg": 30,
+      "left_right_acc": 0.808,
+      "short_long_acc": 0.742,
+      "mean_confidence": 0.134,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 1.5,
+      "azimuth_deg": 45,
+      "left_right_acc": 0.758,
+      "short_long_acc": 0.917,
+      "mean_confidence": 0.173,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 1.5,
+      "azimuth_deg": 60,
+      "left_right_acc": 0.792,
+      "short_long_acc": 0.925,
+      "mean_confidence": 0.217,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 1.5,
+      "azimuth_deg": 75,
+      "left_right_acc": 0.8,
+      "short_long_acc": 0.992,
+      "mean_confidence": 0.217,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 1.5,
+      "azimuth_deg": 90,
+      "left_right_acc": 0.75,
+      "short_long_acc": 1.0,
+      "mean_confidence": 0.208,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 3.0,
+      "azimuth_deg": 15,
+      "left_right_acc": 0.95,
+      "short_long_acc": 0.8,
+      "mean_confidence": 0.076,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 3.0,
+      "azimuth_deg": 30,
+      "left_right_acc": 0.842,
+      "short_long_acc": 0.817,
+      "mean_confidence": 0.132,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 3.0,
+      "azimuth_deg": 45,
+      "left_right_acc": 0.867,
+      "short_long_acc": 0.883,
+      "mean_confidence": 0.173,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 3.0,
+      "azimuth_deg": 60,
+      "left_right_acc": 0.792,
+      "short_long_acc": 0.95,
+      "mean_confidence": 0.21,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 3.0,
+      "azimuth_deg": 75,
+      "left_right_acc": 0.8,
+      "short_long_acc": 0.942,
+      "mean_confidence": 0.238,
+      "n_lr": 120,
+      "n_sl": 120
+    },
+    {
+      "height_m": 3.0,
+      "azimuth_deg": 90,
+      "left_right_acc": 0.742,
+      "short_long_acc": 1.0,
+      "mean_confidence": 0.221,
+      "n_lr": 120,
+      "n_sl": 120
+    }
+  ]
+}

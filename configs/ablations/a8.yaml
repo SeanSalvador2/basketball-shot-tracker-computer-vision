@@ -1,0 +1,7 @@
+# A8 — FSM parameter grid -> F1 sensitivity surface
+seed: 20260713
+make_fractions: [0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+confirm_frames: [1, 2, 3, 4, 5, 6]
+azimuth_deg: 55
+height_m: 1.5
+n_shots: 60

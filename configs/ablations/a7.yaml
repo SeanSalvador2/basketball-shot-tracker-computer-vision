@@ -1,0 +1,8 @@
+# A7 — homography points x click noise x refinement -> cm error + isolines
+seed: 20260713
+n_points: [4, 6, 8]
+click_noise_px: [1, 2, 5, 10]
+n_montecarlo: 80
+azimuth_deg: 45
+height_m: 3.0
+distance_m: 9.0

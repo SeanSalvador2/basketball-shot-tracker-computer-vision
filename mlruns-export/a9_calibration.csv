@@ -1,0 +1,4 @@
+method,ece,brier,n_test
+uncalibrated,0.1165,0.0843,103
+temperature,0.1241,0.0762,103
+platt,0.027,0.0373,103

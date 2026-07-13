@@ -1,0 +1,5 @@
+arm,track_completeness,t2_f1,n_eval
+bbox+bridge,0.855,0.333,10
+tracknet,0.956,0.75,10
+bbox_no_bridge,0.531,1.0,10
+bgsub_fusion,0.983,0.75,10

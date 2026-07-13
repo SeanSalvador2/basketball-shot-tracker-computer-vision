@@ -1,0 +1,212 @@
+{
+  "meta": {
+    "run_id": "ea483f11dbfd414fb0dcbc409f75e92e",
+    "n_points": [
+      4,
+      6,
+      8
+    ],
+    "noises": [
+      1,
+      2,
+      5,
+      10
+    ],
+    "n_montecarlo": 80,
+    "seed": 20260713
+  },
+  "rows": [
+    {
+      "n_points": 4,
+      "refine": false,
+      "click_noise_px": 1,
+      "median_cm": 6.8,
+      "p90_cm": 16.0,
+      "zone_acc": 0.988
+    },
+    {
+      "n_points": 4,
+      "refine": false,
+      "click_noise_px": 2,
+      "median_cm": 13.8,
+      "p90_cm": 32.5,
+      "zone_acc": 0.979
+    },
+    {
+      "n_points": 4,
+      "refine": false,
+      "click_noise_px": 5,
+      "median_cm": 34.7,
+      "p90_cm": 82.9,
+      "zone_acc": 0.937
+    },
+    {
+      "n_points": 4,
+      "refine": false,
+      "click_noise_px": 10,
+      "median_cm": 73.8,
+      "p90_cm": 184.0,
+      "zone_acc": 0.856
+    },
+    {
+      "n_points": 4,
+      "refine": true,
+      "click_noise_px": 1,
+      "median_cm": 7.4,
+      "p90_cm": 17.2,
+      "zone_acc": 0.988
+    },
+    {
+      "n_points": 4,
+      "refine": true,
+      "click_noise_px": 2,
+      "median_cm": 14.8,
+      "p90_cm": 34.5,
+      "zone_acc": 0.977
+    },
+    {
+      "n_points": 4,
+      "refine": true,
+      "click_noise_px": 5,
+      "median_cm": 36.9,
+      "p90_cm": 86.5,
+      "zone_acc": 0.93
+    },
+    {
+      "n_points": 4,
+      "refine": true,
+      "click_noise_px": 10,
+      "median_cm": 77.4,
+      "p90_cm": 194.4,
+      "zone_acc": 0.848
+    },
+    {
+      "n_points": 6,
+      "refine": false,
+      "click_noise_px": 1,
+      "median_cm": 2.3,
+      "p90_cm": 5.5,
+      "zone_acc": 0.997
+    },
+    {
+      "n_points": 6,
+      "refine": false,
+      "click_noise_px": 2,
+      "median_cm": 4.7,
+      "p90_cm": 11.0,
+      "zone_acc": 0.994
+    },
+    {
+      "n_points": 6,
+      "refine": false,
+      "click_noise_px": 5,
+      "median_cm": 11.5,
+      "p90_cm": 26.8,
+      "zone_acc": 0.986
+    },
+    {
+      "n_points": 6,
+      "refine": false,
+      "click_noise_px": 10,
+      "median_cm": 22.7,
+      "p90_cm": 52.3,
+      "zone_acc": 0.963
+    },
+    {
+      "n_points": 6,
+      "refine": true,
+      "click_noise_px": 1,
+      "median_cm": 2.2,
+      "p90_cm": 5.3,
+      "zone_acc": 0.997
+    },
+    {
+      "n_points": 6,
+      "refine": true,
+      "click_noise_px": 2,
+      "median_cm": 4.4,
+      "p90_cm": 10.7,
+      "zone_acc": 0.993
+    },
+    {
+      "n_points": 6,
+      "refine": true,
+      "click_noise_px": 5,
+      "median_cm": 11.3,
+      "p90_cm": 27.2,
+      "zone_acc": 0.985
+    },
+    {
+      "n_points": 6,
+      "refine": true,
+      "click_noise_px": 10,
+      "median_cm": 22.6,
+      "p90_cm": 55.2,
+      "zone_acc": 0.962
+    },
+    {
+      "n_points": 8,
+      "refine": false,
+      "click_noise_px": 1,
+      "median_cm": 2.0,
+      "p90_cm": 4.3,
+      "zone_acc": 0.996
+    },
+    {
+      "n_points": 8,
+      "refine": false,
+      "click_noise_px": 2,
+      "median_cm": 4.0,
+      "p90_cm": 8.9,
+      "zone_acc": 0.992
+    },
+    {
+      "n_points": 8,
+      "refine": false,
+      "click_noise_px": 5,
+      "median_cm": 9.7,
+      "p90_cm": 21.7,
+      "zone_acc": 0.984
+    },
+    {
+      "n_points": 8,
+      "refine": false,
+      "click_noise_px": 10,
+      "median_cm": 19.8,
+      "p90_cm": 44.5,
+      "zone_acc": 0.969
+    },
+    {
+      "n_points": 8,
+      "refine": true,
+      "click_noise_px": 1,
+      "median_cm": 1.9,
+      "p90_cm": 4.1,
+      "zone_acc": 0.996
+    },
+    {
+      "n_points": 8,
+      "refine": true,
+      "click_noise_px": 2,
+      "median_cm": 3.8,
+      "p90_cm": 8.4,
+      "zone_acc": 0.994
+    },
+    {
+      "n_points": 8,
+      "refine": true,
+      "click_noise_px": 5,
+      "median_cm": 9.8,
+      "p90_cm": 21.8,
+      "zone_acc": 0.985
+    },
+    {
+      "n_points": 8,
+      "refine": true,
+      "click_noise_px": 10,
+      "median_cm": 19.9,
+      "p90_cm": 43.8,
+      "zone_acc": 0.969
+    }
+  ]
+}

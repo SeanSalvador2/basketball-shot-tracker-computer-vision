@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "run_id": "5be7725dbbb54219a58e9b67ba3a537f",
+    "seed": 20260713,
+    "temperature_T": 2.722
+  },
+  "rows": [
+    {
+      "method": "uncalibrated",
+      "ece": 0.1165,
+      "brier": 0.0843,
+      "n_test": 103
+    },
+    {
+      "method": "temperature",
+      "ece": 0.1241,
+      "brier": 0.0762,
+      "n_test": 103
+    },
+    {
+      "method": "platt",
+      "ece": 0.027,
+      "brier": 0.0373,
+      "n_test": 103
+    }
+  ]
+}
