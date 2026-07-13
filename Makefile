@@ -46,8 +46,8 @@ demo:
 	$(PY) -m nbconvert --to notebook --execute --inplace \
 		--ExecutePreprocessor.timeout=1800 notebooks/demo.ipynb
 
-reports:
-	$(PY) scripts/build_report_figures.py
+# Regenerate every committed report figure (EDA + ablations) from configs + seeds.
+reports: eda ablations
 
 clean:
 	rm -rf .pytest_cache **/__pycache__ src/**/__pycache__ outputs/ .cache/
