@@ -93,6 +93,7 @@ def bridge_trajectory(
     win_t: list[float] = []
     win_xy: list[np.ndarray] = []
     n_missed = 0
+    reject_streak = 0
 
     # Precompute an L2 image-space predictor if requested.
     l2_predictor = None
@@ -101,29 +102,43 @@ def bridge_trajectory(
 
     for i in range(n):
         cand = candidates[i]
-        pred = None
         gate = base_gate_px + gate_growth_px * n_missed
-        if method == "l2" and l2_predictor is not None:
-            pred = l2_predictor(t[i])
-        elif method in ("l1", "l2") and len(win_t) >= min_fit:
+        # Gating always uses the local L1 fit (robust); the FILL for missing frames uses the
+        # 3D-anchored L2 prediction when method='l2' and available, else L1. Keeping gating
+        # and filling separate is what stopped a biased L2 fit from rejecting good detections.
+        l1_pred = None
+        if method in ("l1", "l2") and len(win_t) >= min_fit:
             fit = fit_level1(np.array(win_t), np.array(win_xy))
-            pred = fit.predict(t[i])[0]
+            l1_pred = fit.predict(t[i])[0]
+        fill_pred = l1_pred
+        if method == "l2" and l2_predictor is not None:
+            fill_pred = l2_predictor(t[i])
 
         if cand.observed:
-            if method == "off" or pred is None or np.hypot(*(cand.xy - pred)) <= gate:
+            in_gate = method == "off" or l1_pred is None or np.hypot(*(cand.xy - l1_pred)) <= gate
+            if not in_gate and reject_streak >= 1:
+                # A second consecutive rejection means the model is stale (a genuine motion
+                # change: possession->flight, or re-acquisition after a long occlusion), not an
+                # isolated outlier. Trust the data and re-seed the window from this detection.
+                win_t = [t[i]]; win_xy = [cand.xy]
+                in_gate = True
+                reject_streak = 0
+            if in_gate:
                 xy[i] = cand.xy
                 observed[i] = True
                 win_t.append(t[i]); win_xy.append(cand.xy)
                 if len(win_t) > window:
                     win_t.pop(0); win_xy.pop(0)
                 n_missed = 0
-            else:  # gate violation: physics-inconsistent candidate (e.g. a second ball)
-                if method != "off" and pred is not None:
-                    xy[i] = pred; bridged[i] = True
+                reject_streak = 0
+            else:  # first gate violation: treat as a physics-inconsistent outlier (2nd ball)
+                if method != "off" and fill_pred is not None:
+                    xy[i] = fill_pred; bridged[i] = True
                 n_missed += 1
+                reject_streak += 1
         else:
-            if method != "off" and pred is not None:
-                xy[i] = pred; bridged[i] = True
+            if method != "off" and fill_pred is not None:
+                xy[i] = fill_pred; bridged[i] = True
             n_missed += 1
 
     return BridgeResult(xy=xy, observed=observed, bridged=bridged, method=method,
@@ -265,9 +280,22 @@ def _depth_observability(camera, shooter_feet_xy, rim_center_3d) -> float:
 
 
 def _build_l2_image_predictor(candidates, times, camera, reconstruct_kwargs):
-    """Fit L2 on observed flight points and return a function t -> predicted image xy."""
-    obs = np.array([c.xy if c.observed else [np.nan, np.nan] for c in candidates], float)
-    rad = np.array([c.radius_px if c.observed else np.nan for c in candidates], float)
+    """Fit L2 on the PRE-GAP flight observations and return a function t -> predicted image
+    xy. Only the ballistic flight arc before the occlusion gap is used: the post-gap terminal
+    (a make funnels through the net — not ballistic) would corrupt a single-parabola fit."""
+    obs_flags = np.array([c.observed for c in candidates])
+    # Find the first long missing run (the gap we're bridging) and fit only on what precedes it.
+    cut = len(candidates)
+    run = 0
+    for i, ok in enumerate(obs_flags):
+        run = 0 if ok else run + 1
+        if run >= 3:
+            cut = i - run + 1
+            break
+    obs = np.array([c.xy if (c.observed and j < cut) else [np.nan, np.nan]
+                    for j, c in enumerate(candidates)], float)
+    rad = np.array([c.radius_px if (c.observed and j < cut) else np.nan
+                    for j, c in enumerate(candidates)], float)
     if (~np.isnan(obs).any(axis=1)).sum() < 5:
         return None
     try:

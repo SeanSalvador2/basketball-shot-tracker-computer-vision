@@ -45,8 +45,11 @@ def build_model(cfg: TrackNetConfig):
 
     def block(cin, cout):
         # GroupNorm (not BatchNorm): batch-independent and identical in train/eval, which
-        # matters for the small batches / reduced-scale training this net runs at.
-        g = min(8, cout)
+        # matters for the small batches / reduced-scale training this net runs at. gcd keeps
+        # num_groups a divisor of the channel count for any base width.
+        import math
+
+        g = max(1, math.gcd(8, cout))
         return nn.Sequential(
             nn.Conv2d(cin, cout, 3, padding=1), nn.GroupNorm(g, cout), nn.ReLU(inplace=True),
             nn.Conv2d(cout, cout, 3, padding=1), nn.GroupNorm(g, cout), nn.ReLU(inplace=True),

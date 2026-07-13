@@ -156,11 +156,18 @@ def generate_shot(
     # A downward-curving parabola can only pass through a point that lies below its launch
     # ray, i.e. d*tan(alpha) > dz. Close shots to a higher rim therefore need a steeper
     # arc (a layup/floater goes up steeply) — clamp the sampled angle up to the minimum
-    # feasible value with a margin. This keeps every sampled location realizable.
-    d_target = float(np.hypot(*(target_xy - release_xy)))
+    # feasible value with a margin. A short miss from right under the rim can place the target
+    # implausibly close (a dropped ball, not a shot); guard a minimum horizontal travel so the
+    # launch stays realizable.
+    to_target = target_xy - release_xy
+    d_target = float(np.hypot(*to_target))
+    if d_target < 0.25:
+        target_xy = release_xy + to_target / (d_target + 1e-9) * 0.25 if d_target > 1e-6 \
+            else release_xy + np.array([0.25, 0.0])
+        d_target = 0.25
     dz_target = RIM_HEIGHT_M - release_height_m
     min_angle = np.degrees(np.arctan2(max(dz_target, 0.0), max(d_target, 1e-3))) + 8.0
-    eff_angle = float(np.clip(max(release_angle_deg, min_angle), release_angle_deg, 78.0))
+    eff_angle = float(np.clip(max(release_angle_deg, min_angle), release_angle_deg, 84.0))
 
     v, beta, tof = solve_launch(release_point, target_xy, RIM_HEIGHT_M, eff_angle)
     release_angle_deg = eff_angle
