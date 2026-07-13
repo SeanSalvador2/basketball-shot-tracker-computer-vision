@@ -1,0 +1,17 @@
+# A4 — player tracker arms under occlusion (regime S)
+# greedy-IoU vs Kalman+IoU vs Kalman+IoU+low-score-recovery on the multi-agent simulator.
+# spread<1 clusters the walkers so they overlap heavily in image space; occ_drop turns heavy
+# overlaps into multi-frame detection gaps (the regime the recovery pass is built for).
+seed: 20260713
+n_players: 8
+n_frames: 150
+n_scenes: 5
+azimuth_deg: 18
+height_m: 2.2
+distance_m: 11.0
+court_spec: nba
+spread: 0.4
+occ_drop: 0.5
+kf_process_std: 25.0
+kf_meas_std: 5.0
+kf_max_age: 30

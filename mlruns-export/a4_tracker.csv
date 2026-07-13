@@ -1,0 +1,4 @@
+arm,hota,idf1,id_switches,regime
+greedy-IoU,0.715,0.708,10.5,S
+Kalman+IoU,0.578,0.511,18.25,S
+Kalman+IoU+recovery,0.613,0.613,36.25,S
