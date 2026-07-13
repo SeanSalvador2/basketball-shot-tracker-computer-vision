@@ -17,6 +17,8 @@ data/external/
 *.mp4
 *.mov
 *.avi
+# Exception: one small synthetic demo clip is committed for the demo notebook (plan M11)
+!notebooks/assets/*.mp4
 
 # Experiment tracking & caches
 mlruns/

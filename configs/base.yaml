@@ -1,0 +1,34 @@
+# Base config composed under every experiment (plan §6, §11.3).
+# Override with:  python -m bball.run --config configs/<exp>.yaml --base configs/base.yaml key=value
+seed: 1729
+strict_determinism: false
+
+# Experiment-tracking store (MLflow local file store, committed summaries in mlruns-export/).
+mlflow:
+  tracking_uri: "file:./mlruns"
+  experiment: "bball-stageA"
+
+# Court geometry defaults (see bball.lift.court_model). Options: nba | fiba | hs | custom.
+court:
+  spec: "nba"
+  on_line_band_m: 0.15   # feet within this band of a zone boundary are flagged "on the line"
+
+# Camera defaults matching an iPhone wide lens (~68 deg HFOV at 1920 px) — plan §5, EDA §3.
+camera:
+  width_px: 1920
+  height_px: 1080
+  hfov_deg: 68.0
+  azimuth_deg: 45.0      # recommended default: 45 deg wing (both miss axes observable)
+  height_m: 3.0          # elevated mount
+  distance_m: 9.0        # to the hoop's ground projection
+
+# Physics ranges for the synthetic engine (all cited in bball.synth.physics, gate G4).
+physics:
+  rim_height_m: 3.048
+  rim_diameter_m: 0.4572
+  ball_diameter_m: 0.24
+  release_speed_ms: [6.0, 9.0]
+  release_angle_deg: [45.0, 55.0]
+  g: 9.81
+
+fps: 60
