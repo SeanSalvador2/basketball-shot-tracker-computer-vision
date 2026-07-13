@@ -210,7 +210,9 @@ def generate_shot(
     t_all = np.concatenate([pre_t, fl_t, tof + post_t])
     pos_all = np.vstack([pre_pos, fl_pos, term])
     t_all = t_all - t_all[0]  # start at 0
-    release_t = pre_t.shape[0] * dt - dt  # last possession frame -> release boundary
+    # Release = first flight frame (matches the plan's release definition and the flight
+    # segment the trajectory layer fits); the preceding possession frames are t < release_t.
+    release_t = pre_t.shape[0] * dt
     apex_t = release_t + (v * np.sin(np.radians(release_angle_deg))) / G
     rim_arrival_t = release_t + tof
 
