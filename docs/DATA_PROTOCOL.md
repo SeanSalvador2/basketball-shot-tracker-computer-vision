@@ -79,7 +79,12 @@ number the README reports.
   call is time-aligned with the event by construction, and review becomes confirm-what-you-
   hear instead of re-watching trajectories. **Wait a beat (~1–2 s) after the ball settles**
   before speaking so your voice stays out of the rim-arrival audio window that T6 classifies.
-  Speaking is an accelerator, not a requirement — silent sessions just label at review speed.
+  Speaking is optional — but know what it buys: make/miss is video-obvious, while **short-vs-
+  long miss direction is degraded on video for humans by the same single-camera depth collapse
+  that makes it hard for the model** — the shooter on the court is the only clean oracle, and
+  unspoken short/long labels may be unrecoverable at review. Lowest-effort mode that keeps the
+  oracle: **call misses only** ("short-left"); silent sessions mark ambiguous misses "unsure"
+  (excluded from the T5 denominator — fewer labels, still honest).
 - **Swish block** and **bank/rattle block** (for T6).
 - **Pull-up block** (dribble before the shot) and **catch-and-shoot block** (a passer feeds) —
   for T4.
