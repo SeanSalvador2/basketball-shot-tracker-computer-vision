@@ -1,5 +1,9 @@
 # Shot Zones — Configurable Partitions
 
+![Zone presets](../reports/figures/zones_presets.png)
+*Generated from the shipped logic by `scripts/plot_zones.py` — the diagram cannot drift from
+the implementation.*
+
 Shot location is stored as a continuous hoop-centred court position (metres). Zones are a
 **view over that position**, not a measurement: `bball.lift.zones` turns any taxonomy into a
 pure lookup, so changing taxonomies **re-buckets every historical shot instantly** — no video

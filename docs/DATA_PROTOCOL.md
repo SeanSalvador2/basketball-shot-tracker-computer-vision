@@ -17,9 +17,10 @@ time you naturally train — two natural variants is plenty; do not schedule aro
 
 **Tier 1 — core (one court, ~5 sessions ≈ 3–4 h total):** each session = the 4-minute ritual
 (tripod set → 5 s empty-court clip → one ball bounce in frame → metadata row) + **~60 shots**
-(≈ 20 close / 20 mid / 20 threes spread left–center–right; **call ~15 deliberate misses out
-loud before shooting** — "short", "left" — free miss-direction labels; one swish-hunting
-block, one bang-the-rim block) + **5 min non-shooting** (dribble/passing + a few lobs toward
+(≈ 20 close / 20 mid / 20 threes spread left–center–right; **call the observed result out
+loud right after each shot** — "make", "miss short-left", "rattle in" — the audio track then
+carries time-aligned labels you merely confirm at review; one swish-hunting block, one
+bang-the-rim block) + **5 min non-shooting** (dribble/passing + a few lobs toward
 the rim). Across the 5 sessions vary what is free: ≥ 3 tripod azimuths (~30°, ~45–60°,
 sideline; one elevated if possible — never ≈ rim height), one ball per session, rotating.
 Tier 1 alone funds detector fine-tuning, real FSM validation, make/miss + location numbers
@@ -73,8 +74,12 @@ number the README reports.
 ## 3. Per-session shot script (≥ 60 shots)
 
 - **Zones × sides:** paint / midrange / 3PT × left / center / right.
-- **Deliberate makes AND misses** — aim off on purpose: short, long, left, right. (The shooter
-  *knows* the intended error → free miss-direction ground truth.)
+- **Spoken post-shot calls** — say the *observed* result aloud right after each shot ("miss
+  short-left", "rattle in"). Observed beats intended (nobody misses on purpose reliably), the
+  call is time-aligned with the event by construction, and review becomes confirm-what-you-
+  hear instead of re-watching trajectories. **Wait a beat (~1–2 s) after the ball settles**
+  before speaking so your voice stays out of the rim-arrival audio window that T6 classifies.
+  Speaking is an accelerator, not a requirement — silent sessions just label at review speed.
 - **Swish block** and **bank/rattle block** (for T6).
 - **Pull-up block** (dribble before the shot) and **catch-and-shoot block** (a passer feeds) —
   for T4.
