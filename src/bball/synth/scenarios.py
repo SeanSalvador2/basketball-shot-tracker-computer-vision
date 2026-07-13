@@ -168,24 +168,46 @@ def generate_session(scene: SceneConfig, *, n_shots: int = 60, fps: float = 60.0
 # --------------------------------------------------------------------------- #
 # Hard negatives + players
 # --------------------------------------------------------------------------- #
-def generate_lob_pass(court: CourtSpec, *, fps: float = 60.0, seed: int = 0) -> Shot:
-    """A lob pass that arcs *near* the rim region but is caught — the adversarial near-
-    positive for T1 (review R3/R7). Labelled outcome='negative'; the FSM must not count it."""
+def generate_lob_pass(court: CourtSpec, *, fps: float = 60.0, seed: int = 0,
+                      apex_height_m: float = 2.5) -> Shot:
+    """A flat pass between two players that travels through the rim *region* in image space
+    but peaks BELOW rim height and is caught — the adversarial near-positive for T1 (review
+    R3/R7). Labelled outcome='negative'; the FSM must not count it (apex below the rim ->
+    not an attempt). Built directly (not via generate_shot, which always targets rim height)."""
     rng = np.random.default_rng(seed)
-    passer = np.array([rng.uniform(-4, 4), rng.uniform(5, 8)])
-    receiver = np.array([rng.uniform(-2, 2), rng.uniform(1.5, 3.0)])  # near the hoop, not through
-    # Aim to pass over a point beside the rim at a lower apex than a shot.
-    target = receiver
-    shot = generate_shot(
-        release_xy=passer, hoop_ground_xy=tuple(receiver), outcome="make",
-        release_angle_deg=float(rng.uniform(28, 38)),  # flatter than a shot
-        release_height_m=float(rng.uniform(1.6, 2.0)), fps=fps, post_rim_s=0.4,
-        seed=int(rng.integers(1 << 31)))
-    shot.outcome = "miss"  # placeholder; overwritten below
-    shot.meta["is_negative"] = True
-    shot.meta["kind"] = "lob_pass"
-    shot.outcome = "negative"  # type: ignore
-    shot.miss_direction = "none"  # type: ignore
+    passer = np.array([rng.uniform(-4, 4), rng.uniform(5.5, 8.0)])
+    receiver = np.array([rng.uniform(-2.5, 2.5), rng.uniform(1.0, 3.0)])
+    release_h = float(rng.uniform(1.7, 2.0))
+    catch_h = float(rng.uniform(1.6, 2.0))
+    apex = max(apex_height_m, release_h + 0.2)
+    vz = np.sqrt(2 * 9.81 * (apex - release_h))              # apex below the rim by construction
+    # time for the ball to fall from apex to catch height sets the second half; approximate tof
+    t_up = vz / 9.81
+    t_down = np.sqrt(2 * max(apex - catch_h, 0.05) / 9.81)
+    tof = t_up + t_down
+    d = float(np.hypot(*(receiver - passer)))
+    beta = np.arctan2(receiver[1] - passer[1], receiver[0] - passer[0])
+    vh = d / tof
+    dt = 1.0 / fps
+    n_pre = max(int(0.4 * fps), 1)
+    n_fl = max(int(tof * fps), 4)
+    pre = np.tile([passer[0], passer[1], release_h - 0.3], (n_pre, 1))
+    tt = np.arange(0, n_fl + 1) * dt
+    x = passer[0] + vh * np.cos(beta) * tt
+    y = passer[1] + vh * np.sin(beta) * tt
+    z = release_h + vz * tt - 0.5 * 9.81 * tt * tt
+    fl = np.stack([x, y, z], axis=1)
+    pos = np.vstack([pre, fl])
+    t = np.arange(pos.shape[0]) * dt
+    shot = Shot(t=t, pos=pos, fps=fps, outcome="negative", miss_direction="none",  # type: ignore
+                miss_magnitude_m=0.0, release_xy=passer,
+                release_point=np.array([passer[0], passer[1], release_h]),
+                hoop_ground_xy=np.array([0.0, 0.0]), release_speed=vh,
+                release_angle_deg=float(np.degrees(np.arctan2(vz, vh))),
+                apex_height_m=float(apex),
+                events={"release_t": n_pre * dt, "apex_t": n_pre * dt + t_up,
+                        "rim_arrival_t": n_pre * dt + tof},
+                meta={"is_negative": True, "kind": "lob_pass"})
     return shot
 
 
