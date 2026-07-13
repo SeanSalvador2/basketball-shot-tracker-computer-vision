@@ -61,6 +61,17 @@ the synthetic A6 azimuth curve rather than re-measuring it — a respectable des
 - Prefer **60 fps normal-speed** capture for audio-critical (T6) sessions (slow-mo retimes
   video but records audio at normal rate — alignment risk, review R11).
 
+**Storage & recording pattern.** Turn on HEVC ("High Efficiency" in Settings → Camera →
+Formats) — half the size of H.264 for free; a 35-min 1080p60 session is then ~2–3 GB.
+Recording granularity, in order of preference: (a) **record the whole session** and shrink it
+afterwards with `scripts/condense_session.py` (keeps a generous window around every proposed
+attempt + the negatives budget; typical 5–10× reduction; delete originals only after the
+review pass confirms the shot count); (b) **block-level start/stop** with a Bluetooth shutter
+remote or Apple Watch — record whole shooting blocks, stop while chasing balls (cuts the dead
+time that dominates a session); (c) **never per-shot clipping** — it destroys the 2–4 s
+pre-release window T4 needs, loses any attempt you forget to trigger, and mid-arc cuts break
+the trajectory fit. Negative blocks are still recorded deliberately in every mode.
+
 ## 2. Variation grid (the ideal — see the tiers above for the solo-collector minimum)
 
 Visual placement guide: `reports/figures/camera_placement_guide.png`
