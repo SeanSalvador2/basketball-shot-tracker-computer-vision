@@ -84,6 +84,26 @@ function fillLandmarks() {
 function drawCalMap() {
   if (!S.court) return;
   const cv = $("cal-map"), ctx = cv.getContext("2d");
+  if (S.mode === "rim") {           // context help switches to the rim-clicking guide
+    ctx.fillStyle = "#f7f3e8"; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = "#c1272d"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(135, 130, 95, 36, 0, 0, 7); ctx.stroke();
+    const spots = [[230, 130], [40, 130], [135, 166], [135, 94], [202, 156], [68, 156]];
+    spots.forEach(([x, y], i) => {
+      ctx.fillStyle = "#1a3a5c";
+      ctx.beginPath(); ctx.arc(x, y, 8, 0, 7); ctx.fill();
+      ctx.fillStyle = "white"; ctx.font = "bold 10px sans-serif";
+      ctx.fillText(String(i + 1), x - 3, y + 3.5);
+    });
+    ctx.fillStyle = "#1c1c1c"; ctx.font = "bold 12px sans-serif";
+    ctx.fillText("YOUR RIM (appears as an ellipse)", 30, 30);
+    ctx.font = "11px sans-serif";
+    ctx.fillText("click ~6 spots like these, ON the", 45, 215);
+    ctx.fillText("ring's edge — front AND back edge", 45, 231);
+    ctx.fillText("matter most (they set the ellipse", 45, 247);
+    ctx.fillText("height). Zoom in first!", 45, 263);
+    return;
+  }
   const c = S.court, m = 18;
   const s = Math.min((cv.width - 2 * m) / (2 * c.sideline_x_m),
                      (cv.height - 2 * m) / (c.halfcourt_y_m + c.rim_from_baseline_m));
@@ -112,6 +132,18 @@ let calImg = new Image(), calScale = { sx: 1, sy: 1 };
 
 function frameURL(t) { return `/api/sessions/${S.sid}/frame?t=${t}&maxw=1280`; }
 
+/* Zoomed view: crop rect (canvas coords) magnified to fill the canvas. */
+function viewParams() {
+  if (!S.zoomView) return { x0: 0, y0: 0, f: 1 };
+  const f = S.zoomView.f;
+  const w = calCanvas.width / f, h = calCanvas.height / f;
+  const x0 = Math.max(0, Math.min(calCanvas.width - w, S.zoomView.xc - w / 2));
+  const y0 = Math.max(0, Math.min(calCanvas.height - h, S.zoomView.yc - h / 2));
+  return { x0, y0, f };
+}
+const tx = (p) => { const v = viewParams(); return [(p[0] - v.x0) * v.f, (p[1] - v.y0) * v.f]; };
+const toCanvas = (pNative) => [pNative[0] * calScale.sx, pNative[1] * calScale.sy];
+
 function drawCal() {
   if (!S.sid) return;
   const t = parseFloat($("cal-time").value);
@@ -120,20 +152,25 @@ function drawCal() {
   calImg.onload = () => {
     calCanvas.width = calImg.width; calCanvas.height = calImg.height;
     calScale.sx = calImg.width / S.probe.w; calScale.sy = calImg.height / S.probe.h;
-    calCtx.drawImage(calImg, 0, 0);
+    const v = viewParams();
+    if (v.f > 1) {
+      calCtx.imageSmoothingEnabled = false;
+      calCtx.drawImage(calImg, v.x0, v.y0, calCanvas.width / v.f, calCanvas.height / v.f,
+        0, 0, calCanvas.width, calCanvas.height);
+    } else calCtx.drawImage(calImg, 0, 0);
     if (S.overlay) {
       calCtx.lineWidth = 2;
       for (const [name, poly] of Object.entries(S.overlay)) {
         calCtx.strokeStyle = name === "three" ? "#7CFC00" : "#00d5ff";
-        strokePoly(calCtx, poly.map((p) => [p[0] * calScale.sx, p[1] * calScale.sy]));
+        strokePoly(calCtx, poly.map((p) => tx(toCanvas(p))));
       }
     }
     if (S.rimPoly) {
       calCtx.strokeStyle = "#ff4444"; calCtx.lineWidth = 2;
-      strokePoly(calCtx, S.rimPoly.map((p) => [p[0] * calScale.sx, p[1] * calScale.sy]), true);
+      strokePoly(calCtx, S.rimPoly.map((p) => tx(toCanvas(p))), true);
     }
-    S.calPoints.forEach((p) => dot(calCtx, p.img[0] * calScale.sx, p.img[1] * calScale.sy, "#ffd700", p.name));
-    S.rimPoints.forEach((p) => dot(calCtx, p[0] * calScale.sx, p[1] * calScale.sy, "#ff4444"));
+    S.calPoints.forEach((p) => { const q = tx(toCanvas(p.img)); dot(calCtx, q[0], q[1], "#ffd700", p.name); });
+    S.rimPoints.forEach((p) => { const q = tx(toCanvas(p)); dot(calCtx, q[0], q[1], "#ff4444"); });
   };
   calImg.src = frameURL(t);
 }
@@ -156,11 +193,18 @@ function setMode(m) {
   $("btn-mode-cal").classList.toggle("active", m === "cal");
   $("btn-mode-rim").classList.toggle("active", m === "rim");
   setStatus(m === "rim"
-    ? `RIM MODE — click 5-6 points spread AROUND the rim ring (front edge, back edge, ` +
-      `sides), then press "Fit rim". Points so far: ${S.rimPoints.length}`
+    ? `RIM MODE — press "🔍 zoom to rim" first (the rim is small!), then click 5-6 points ` +
+      `AROUND the ring edge — see the guide diagram on the right. Points so far: ` +
+      `${S.rimPoints.length}`
     : `LANDMARK MODE — pick a landmark name, then click that exact spot on the frame ` +
       `(dropdown auto-advances). Placed: ${S.calPoints.length}. Then press "Calibrate".`);
+  drawCalMap();
 }
+$("btn-zoom-rim").onclick = () => {
+  S.pendingZoom = true;
+  setStatus("click roughly ON the rim in the frame — the view will magnify 4x there");
+};
+$("btn-zoom-reset").onclick = () => { S.zoomView = null; S.pendingZoom = false; drawCal(); };
 $("btn-undo").onclick = () => {
   (S.mode === "cal" ? S.calPoints : S.rimPoints).pop();
   setMode(S.mode);          // refresh the count in the status line
@@ -178,8 +222,21 @@ $("btn-clear-cal").onclick = () => {
 calCanvas.addEventListener("click", (e) => {
   if (!S.sid) return;
   const r = calCanvas.getBoundingClientRect();
-  const x = ((e.clientX - r.left) * (calCanvas.width / r.width)) / calScale.sx;
-  const y = ((e.clientY - r.top) * (calCanvas.height / r.height)) / calScale.sy;
+  const u = (e.clientX - r.left) * (calCanvas.width / r.width);
+  const w = (e.clientY - r.top) * (calCanvas.height / r.height);
+  const v = viewParams();
+  const xc = v.x0 + u / v.f, yc = v.y0 + w / v.f;   // un-zoomed canvas coords
+  if (S.pendingZoom) {
+    S.zoomView = { xc, yc, f: 4 };
+    S.pendingZoom = false;
+    setMode("rim");
+    setStatus("zoomed 4x on the rim — now click 5-6 points AROUND the ring edge " +
+      "(front, back, both sides), then press Fit rim. 'reset view' zooms back out.");
+    drawCal();
+    return;
+  }
+  const x = xc / calScale.sx;
+  const y = yc / calScale.sy;
   if (S.mode === "cal") {
     const name = $("landmark-select").value;
     S.calPoints = S.calPoints.filter((p) => p.name !== name);
