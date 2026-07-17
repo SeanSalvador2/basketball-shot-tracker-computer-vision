@@ -86,22 +86,31 @@ function drawCalMap() {
   const cv = $("cal-map"), ctx = cv.getContext("2d");
   if (S.mode === "rim") {           // context help switches to the rim-clicking guide
     ctx.fillStyle = "#f7f3e8"; ctx.fillRect(0, 0, cv.width, cv.height);
+    // Backboard: the orientation anchor — the ring hangs off it.
+    ctx.fillStyle = "#b9b2a0"; ctx.fillRect(45, 42, 180, 26);
+    ctx.fillStyle = "#1c1c1c"; ctx.font = "bold 11px sans-serif";
+    ctx.fillText("BACKBOARD", 100, 59);
+    ctx.strokeStyle = "#777"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(135, 68); ctx.lineTo(135, 106); ctx.stroke();  // bracket
     ctx.strokeStyle = "#c1272d"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.ellipse(135, 130, 95, 36, 0, 0, 7); ctx.stroke();
-    const spots = [[230, 130], [40, 130], [135, 166], [135, 94], [202, 156], [68, 156]];
-    spots.forEach(([x, y], i) => {
+    ctx.beginPath(); ctx.ellipse(135, 140, 90, 34, 0, 0, 7); ctx.stroke();
+    const spots = [[225, 140, "R"], [45, 140, "L"], [135, 174, "C"], [135, 106, "B"],
+                   [199, 163, ""], [71, 163, ""]];
+    spots.forEach(([x, y, t]) => {
       ctx.fillStyle = "#1a3a5c";
       ctx.beginPath(); ctx.arc(x, y, 8, 0, 7); ctx.fill();
-      ctx.fillStyle = "white"; ctx.font = "bold 10px sans-serif";
-      ctx.fillText(String(i + 1), x - 3, y + 3.5);
+      if (t) { ctx.fillStyle = "white"; ctx.font = "bold 10px sans-serif"; ctx.fillText(t, x - 3.5, y + 3.5); }
     });
-    ctx.fillStyle = "#1c1c1c"; ctx.font = "bold 12px sans-serif";
-    ctx.fillText("YOUR RIM (appears as an ellipse)", 30, 30);
-    ctx.font = "11px sans-serif";
-    ctx.fillText("click ~6 spots like these, ON the", 45, 215);
-    ctx.fillText("ring's edge — front AND back edge", 45, 231);
-    ctx.fillText("matter most (they set the ellipse", 45, 247);
-    ctx.fillText("height). Zoom in first!", 45, 263);
+    ctx.fillStyle = "#1a3a5c"; ctx.font = "bold 10.5px sans-serif";
+    ctx.fillText("backboard side (B)", 150, 100);
+    ctx.fillText("court side (C)", 150, 192);
+    ctx.fillText("L / R = the ellipse's widest points", 40, 214);
+    ctx.fillStyle = "#1c1c1c"; ctx.font = "11px sans-serif";
+    ctx.fillText("The ring hangs off the backboard —", 30, 240);
+    ctx.fillText("find the board in YOUR frame to orient.", 30, 255);
+    ctx.fillText("Click ~6 spots like these on the middle", 30, 270);
+    ctx.fillText("of the ring line. ORDER DOESN'T MATTER —", 30, 285);
+    ctx.fillText("covering all sides does. Zoom in first!", 30, 300);
     return;
   }
   const c = S.court, m = 18;
