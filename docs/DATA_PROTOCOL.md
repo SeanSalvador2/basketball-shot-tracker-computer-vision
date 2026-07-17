@@ -61,6 +61,15 @@ the synthetic A6 azimuth curve rather than re-measuring it — a respectable des
 - Prefer **60 fps normal-speed** capture for audio-critical (T6) sessions (slow-mo retimes
   video but records audio at normal rate — alignment risk, review R11).
 
+**Camera settings.** Settings → Camera → Record Video: **1080p at 60 fps** and **HDR Video
+OFF** — HDR (Dolby Vision, 10-bit) buys nothing for training and decodes inconsistently
+across tools (washed-out in naive decoders); SDR capture looks identical everywhere. If a
+session was accidentally shot in HDR: check it in the workbench Calibrate frame first (that
+view is the pipeline's view); if genuinely washed out, tone-map once with ffmpeg
+(`zscale=t=linear:npl=100,tonemap=hable,zscale=p=bt709:t=bt709:m=bt709`) and keep the
+original as the raw record. Never edit in a photos app (unknown re-encode, timing metadata
+risk). Note HDR capture in the session metadata either way.
+
 **Storage & recording pattern.** Turn on HEVC ("High Efficiency" in Settings → Camera →
 Formats) — half the size of H.264 for free; a 35-min 1080p60 session is then ~2–3 GB.
 Recording granularity, in order of preference: (a) **record the whole session** and shrink it
