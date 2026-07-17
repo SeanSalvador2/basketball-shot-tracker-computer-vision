@@ -22,6 +22,7 @@ label.file input { display: none; }
 .muted { color: #6d675a; }
 canvas { width: 100%; height: auto; border-radius: 10px; border: 1px solid #d8d2c0; background: #000; touch-action: manipulation; }
 #zone-canvas, #chart-canvas { background: #f7f3e8; max-width: 760px; display: block; }
+#cal-map { width: 270px; background: #f7f3e8; }
 video { width: 100%; max-height: 46vh; border-radius: 10px; background: #000; }
 .event { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid #e2ddcd; border-radius: 10px; padding: 6px 10px; margin: 6px 0; }
 .event.excluded { opacity: .45; }

@@ -176,3 +176,62 @@ def test_calibrate_spec_ranking_identifies_true_court(client, video):
     assert nba_rank["rms_px"] > 3.0                 # wrong spec fits worse over ALL points
     assert body["rms_all_px"] > body["spec_ranking"][0]["rms_px"]
     assert "three_apex" in body["residuals_px"]
+
+
+def test_calibrate_overrides_stale_client_court_coords(client, video):
+    """Named points get court coords from the POSTED spec — stale client values from a
+    mid-flow spec switch cannot poison the fit."""
+    s = _mksession(client, video)
+    hs = landmark_points(get_court("hs"))
+    H_true = np.array([[85.0, 3.0, 630.0], [-2.5, -52.0, 590.0], [0.0, 0.0035, 1.0]])
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right",
+             "three_apex", "lane_baseline_left"]
+    nba = landmark_points(get_court("nba"))
+    pts = [{"name": n, "court": nba[n].tolist(),  # STALE nba coords cached client-side
+            "img": apply_homography(H_true, np.atleast_2d(hs[n]))[0].tolist()}
+           for n in names]
+    r = client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "hs", "points": pts})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert body["rms_all_px"] < 0.01  # server-side hs lookup wins; stale nba ignored
+
+
+def test_calibrate_detects_swapped_sides(client, video):
+    s = _mksession(client, video)
+    lms = landmark_points(get_court("nba"))
+    H_true = np.array([[85.0, 3.0, 630.0], [-2.5, -52.0, 590.0], [0.0, 0.0035, 1.0]])
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right",
+             "three_apex", "lane_baseline_left", "lane_baseline_right"]
+    pts = []
+    for n in names:
+        img = apply_homography(H_true, np.atleast_2d(lms[n]))[0].tolist()
+        pts.append({"name": n, "court": lms[n].tolist(), "img": img})
+    # user swapped the two ft clicks (left/right ambiguity from a diagonal camera)
+    i_a = names.index("ft_left"); i_b = names.index("ft_right")
+    pts[i_a]["img"], pts[i_b]["img"] = pts[i_b]["img"], pts[i_a]["img"]
+    r = client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "nba", "points": pts})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert body["rms_all_px"] > 3.0
+    assert any("ft_left" in sw for sw in body["suspected_swaps"])
+
+
+def test_overlay_math_round_trip(client, video):
+    """The overlay polylines projected back through the inverse homography must land on
+    the canonical court lines — certifies the server-side overlay geometry end to end."""
+    s = _mksession(client, video)
+    from bball.lift.court_model import three_point_polyline
+    court = get_court("nba")
+    lms = landmark_points(court)
+    H_true = np.array([[85.0, 3.0, 630.0], [-2.5, -52.0, 590.0], [0.0, 0.0035, 1.0]])
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right",
+             "three_apex", "corner_three_right"]
+    pts = [{"name": n, "court": lms[n].tolist(),
+            "img": apply_homography(H_true, np.atleast_2d(lms[n]))[0].tolist()}
+           for n in names]
+    r = client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "nba", "points": pts})
+    overlay_three = np.array(r.json()["overlay_img"]["three"])
+    state = client.get(f"/api/sessions/{s['sid']}").json()
+    H_inv = np.array(state["calibration"]["H_img2court"])
+    back = apply_homography(H_inv, overlay_three)
+    assert np.allclose(back, three_point_polyline(court), atol=1e-6)

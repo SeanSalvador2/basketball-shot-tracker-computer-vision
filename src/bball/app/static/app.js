@@ -77,6 +77,34 @@ function fillLandmarks() {
     o.textContent = `${k} (${S.court.landmarks[k][0].toFixed(1)}, ${S.court.landmarks[k][1].toFixed(1)})`;
     sel.appendChild(o);
   });
+  sel.onchange = drawCalMap;
+  drawCalMap();
+}
+
+function drawCalMap() {
+  if (!S.court) return;
+  const cv = $("cal-map"), ctx = cv.getContext("2d");
+  const c = S.court, m = 18;
+  const s = Math.min((cv.width - 2 * m) / (2 * c.sideline_x_m),
+                     (cv.height - 2 * m) / (c.halfcourt_y_m + c.rim_from_baseline_m));
+  const T = (p) => [cv.width / 2 + p[0] * s,
+                    cv.height - m - (p[1] + c.rim_from_baseline_m) * s];
+  ctx.fillStyle = "#f7f3e8"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = "#222"; ctx.lineWidth = 1.6;
+  strokePoly(ctx, [[-c.sideline_x_m, -c.rim_from_baseline_m],
+    [c.sideline_x_m, -c.rim_from_baseline_m], [c.sideline_x_m, c.halfcourt_y_m],
+    [-c.sideline_x_m, c.halfcourt_y_m]].map(T), true);
+  strokePoly(ctx, S.court.three.map(T));
+  ctx.strokeStyle = "#888"; strokePoly(ctx, S.court.paint.map(T), true);
+  const placed = new Set(S.calPoints.map((p) => p.name));
+  const selName = $("landmark-select").value;
+  Object.entries(S.court.landmarks).forEach(([name, xy]) => {
+    const q = T(xy);
+    ctx.fillStyle = name === selName ? "#c1272d" : placed.has(name) ? "#1a7837" : "#9a927e";
+    ctx.beginPath(); ctx.arc(q[0], q[1], name === selName ? 7 : 4.5, 0, 7); ctx.fill();
+  });
+  ctx.fillStyle = "#c1272d"; ctx.font = "bold 12px sans-serif";
+  ctx.fillText(selName || "", 8, 16);
 }
 
 const calCanvas = $("cal-canvas"), calCtx = calCanvas.getContext("2d");
@@ -144,6 +172,7 @@ $("btn-clear-cal").onclick = () => {
   setMode("cal");
   setStatus("cleared — all points and overlay lines removed; start fresh from the first landmark");
   drawCal();
+  drawCalMap();
 };
 
 calCanvas.addEventListener("click", (e) => {
@@ -160,6 +189,7 @@ calCanvas.addEventListener("click", (e) => {
     if (i < opts.length - 1) $("landmark-select").selectedIndex = i + 1;
     setStatus(`placed "${name}" (${S.calPoints.length} landmarks). ` +
       `Keep going or press "Calibrate" (needs >= 4; spread beats count).`);
+    drawCalMap();
   } else {
     S.rimPoints.push([x, y]);
     setStatus(`rim points: ${S.rimPoints.length} — need >= 5 spread around the ring, ` +
@@ -180,6 +210,9 @@ $("btn-calibrate").onclick = async () => {
     if (resid.length && resid[0][1] > 3)
       msg += ` Worst landmarks: ${resid.slice(0, 2).map(([n, e]) => `${n} ${e}px`).join(", ")}` +
         ` — re-click those, or that court dimension differs from the spec.`;
+    if ((res.suspected_swaps || []).length)
+      msg += ` ⚠ SIDES LOOK SWAPPED: ${res.suspected_swaps.join("; ")} — check the mini-map ` +
+        `and re-click those two.`;
     const rank = res.spec_ranking || [];
     const cur = rank.find((r) => r.spec === S.spec), best = rank[0];
     if (cur && best && best.spec !== S.spec && best.rms_px * 1.5 < cur.rms_px)

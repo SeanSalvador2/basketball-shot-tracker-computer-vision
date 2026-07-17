@@ -191,6 +191,15 @@ async def calibrate(sid: str, request: Request) -> dict:
     # Merge correspondences whose court coordinates coincide (e.g. on HS courts the 3PT
     # apex IS the top of the key — 4.191 m + 1.829 m = 6.02 m = 19'9"): duplicate court
     # points add no constraint, and differing clicks on them would inject noise as signal.
+    # Single source of truth for named landmarks: re-derive court coords from the POSTED
+    # spec server-side. Client-cached coords go stale when the user switches specs between
+    # clicks — mixed-spec correspondences warp the whole fit.
+    spec_name = body.get("spec") or _load(sid).get("spec", "nba")
+    lms_posted = landmark_points(get_court(spec_name))
+    for p in pts:
+        if p.get("name") in lms_posted:
+            p["court"] = lms_posted[p["name"]].tolist()
+
     merged: dict[tuple, dict] = {}
     for p in pts:
         key = (round(p["court"][0], 2), round(p["court"][1], 2))  # key only — never the value
@@ -240,6 +249,26 @@ async def calibrate(sid: str, request: Request) -> dict:
     ranking.sort(key=lambda r: r["rms_px"])
     rms_all_px = float(np.sqrt(np.mean(errs ** 2)))
 
+    # Left/right mix-up detector: for each clicked symmetric pair, test whether swapping
+    # the two court coordinates collapses the misfit — the classic diagonal-camera trap.
+    suspected_swaps = []
+    if rms_all_px > 3.0:
+        by_name = {p["name"]: i for i, p in enumerate(pts) if p.get("name")}
+        pair_ids = {n.replace("left", "*").replace("right", "*")
+                    for n in by_name if "left" in n or "right" in n}
+        for pid in pair_ids:
+            a, b = pid.replace("*", "left"), pid.replace("*", "right")
+            if a in by_name and b in by_name:
+                cp = court_pts.copy()
+                cp[[by_name[a], by_name[b]]] = cp[[by_name[b], by_name[a]]]
+                try:
+                    r3 = estimate_homography(cp, img_pts)
+                    rms3 = float(np.sqrt(np.mean(reprojection_errors(r3.H, cp, img_pts) ** 2)))
+                    if rms3 < 0.5 * rms_all_px:
+                        suspected_swaps.append(f"{a} <-> {b}")
+                except Exception:
+                    pass
+
     c = get_court(state["spec"])
     yb, sx = -c.rim_from_baseline_m, c.sideline_x_m
     boundary = np.array([[-sx, 12.73], [-sx, yb], [sx, yb], [sx, 12.73]])
@@ -252,6 +281,7 @@ async def calibrate(sid: str, request: Request) -> dict:
             "n_inliers": res.n_inliers,
             "n_points": res.n_points, "n_merged_duplicates": n_merged,
             "residuals_px": residuals, "spec_ranking": ranking,
+            "suspected_swaps": suspected_swaps,
             "overlay_img": overlay}
 
 

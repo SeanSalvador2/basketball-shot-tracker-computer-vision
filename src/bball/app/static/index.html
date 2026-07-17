@@ -50,7 +50,15 @@
     <button id="btn-calibrate">Calibrate (≥4 pts)</button>
     <button id="btn-fit-rim">Fit rim (≥5 pts)</button>
   </div>
-  <canvas id="cal-canvas" width="1280" height="720"></canvas>
+  <div class="row" style="align-items:flex-start">
+    <canvas id="cal-canvas" width="1280" height="720" style="flex:1;min-width:0"></canvas>
+    <div style="flex:none">
+      <canvas id="cal-map" width="270" height="330"></canvas>
+      <div class="muted" style="font-size:.8rem;max-width:270px">red = the landmark you're
+      about to click (this is where it is on the court — resolves left vs right);
+      green = already placed</div>
+    </div>
+  </div>
   <div id="cal-status" class="card muted">click landmarks on the frame; pick each name first</div>
 </section>
 
