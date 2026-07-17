@@ -83,6 +83,30 @@ def _court_payload(spec: str) -> dict:
     }
 
 
+def _overlay_from_H(H_court2img, spec: str) -> dict:
+    """Court lines (3PT, paint, boundary) projected into image pixels — the calibration
+    overlay. Shared by calibrate (fresh fit) and get_session (restore a saved fit)."""
+    c = get_court(spec)
+    yb, sx = -c.rim_from_baseline_m, c.sideline_x_m
+    boundary = np.array([[-sx, 12.73], [-sx, yb], [sx, yb], [sx, 12.73]])
+    H = np.asarray(H_court2img, float)
+    return {
+        "three": apply_homography(H, three_point_polyline(c)).tolist(),
+        "paint": apply_homography(H, paint_polygon(c)).tolist(),
+        "boundary": apply_homography(H, boundary).tolist(),
+    }
+
+
+def _rim_polyline(rim: dict) -> list:
+    """Fitted rim ellipse traced as a polyline in image pixels (for redraw on load)."""
+    cx, cy, a, b = rim["cx"], rim["cy"], rim["a"], rim["b"]
+    th = np.deg2rad(rim["theta_deg"])
+    tt = np.linspace(0, 2 * np.pi, 72)
+    return np.stack([cx + a * np.cos(tt) * np.cos(th) - b * np.sin(tt) * np.sin(th),
+                     cy + a * np.cos(tt) * np.sin(th) + b * np.sin(tt) * np.cos(th)],
+                    axis=1).tolist()
+
+
 @app.get("/api/court")
 def api_court(spec: str = "nba") -> dict:
     return _court_payload(spec)
@@ -111,6 +135,18 @@ async def create_session(request: Request) -> dict:
         if not video.exists():
             shutil.rmtree(sdir)
             raise HTTPException(400, f"video not found: {video}")
+        # Reuse an existing session for the same video path so calibration/rim/labels
+        # already done for this clip are not lost by opening it again.
+        for d in sorted(DATA_ROOT.iterdir(), reverse=True):
+            f = d / "state.json"
+            if f.exists() and d.name != sid:
+                try:
+                    prev = json.loads(f.read_text())
+                except Exception:
+                    continue
+                if Path(prev.get("video", "")).resolve() == video:
+                    shutil.rmtree(sdir)
+                    return get_session(prev["sid"])
     state = {"sid": sid, "video": str(video), "probe": _probe(video), "spec": "nba",
              "calibration": None, "rim": None, "partition": {"mode": "basic3", "court": "nba",
                                                              "interior_radius_m": 2.1336}}
@@ -139,7 +175,13 @@ def list_sessions() -> list[dict]:
 
 @app.get("/api/sessions/{sid}")
 def get_session(sid: str) -> dict:
-    return _load(sid)
+    state = _load(sid)
+    # Attach redraw data so the client restores a saved calibration/rim without redoing it.
+    if state.get("calibration"):
+        state["overlay_img"] = _overlay_from_H(state["calibration"]["H_court2img"], state["spec"])
+    if state.get("rim"):
+        state["rim_polyline"] = _rim_polyline(state["rim"])
+    return state
 
 
 @app.get("/api/sessions/{sid}/frame")
@@ -271,14 +313,7 @@ async def calibrate(sid: str, request: Request) -> dict:
                 except Exception:
                     pass
 
-    c = get_court(state["spec"])
-    yb, sx = -c.rim_from_baseline_m, c.sideline_x_m
-    boundary = np.array([[-sx, 12.73], [-sx, yb], [sx, yb], [sx, 12.73]])
-    overlay = {
-        "three": apply_homography(res.H, three_point_polyline(c)).tolist(),
-        "paint": apply_homography(res.H, paint_polygon(c)).tolist(),
-        "boundary": apply_homography(res.H, boundary).tolist(),
-    }
+    overlay = _overlay_from_H(res.H, state["spec"])
     return {"rms_px": res.rms_reproj_error, "rms_all_px": round(rms_all_px, 2),
             "n_inliers": res.n_inliers,
             "n_points": res.n_points, "n_merged_duplicates": n_merged,
@@ -299,12 +334,7 @@ async def set_rim(sid: str, request: Request) -> dict:
     state = _load(sid)
     state["rim"] = rim
     _save(sid, state)
-    tt = np.linspace(0, 2 * np.pi, 72)
-    th = np.deg2rad(theta)
-    poly = np.stack([
-        center[0] + a * np.cos(tt) * np.cos(th) - b * np.sin(tt) * np.sin(th),
-        center[1] + a * np.cos(tt) * np.sin(th) + b * np.sin(tt) * np.cos(th)], axis=1)
-    return {"rim": rim, "polyline": poly.tolist()}
+    return {"rim": rim, "polyline": _rim_polyline(rim)}
 
 
 # --------------------------------------------------------------------------- #

@@ -37,11 +37,23 @@ async function loadCourt() { S.court = await api(`/api/court?spec=${S.spec}`); }
 function setSession(state) {
   S.sid = state.sid; S.probe = state.probe; S.spec = state.spec || "nba";
   S.partition = state.partition || null;
+  // Restore a saved calibration/rim (or clear it when switching to a fresh session) so it
+  // survives page reloads and reopening the same clip — no redoing calibration.
+  S.calPoints = (state.calibration && state.calibration.points)
+    ? state.calibration.points.map((p) => ({ name: p.name, img: p.img, court: p.court }))
+    : [];
+  S.overlay = state.overlay_img || null;
+  S.rimPoly = state.rim_polyline || null;
+  S.rimPoints = []; S.zoomView = null; S.pendingZoom = false;
+  if ($("court-spec")) $("court-spec").value = S.spec;
   $("session-info").textContent =
     `session ${state.sid} · ${state.probe.duration_s.toFixed(1)}s @ ${state.probe.fps.toFixed(0)}fps ` +
     `· ${state.probe.w}x${state.probe.h} · calibrated: ${!!state.calibration} · rim: ${!!state.rim}`;
   $("cal-time").max = Math.max(1, state.probe.duration_s - 0.05);
   $("review-video").src = `/api/sessions/${S.sid}/video`;
+  if (state.calibration || state.rim)
+    setStatus(`loaded saved setup — calibration: ${!!state.calibration}, rim: ${!!state.rim}. ` +
+      `Overlay redrawn below; recalibrate only if you want to change it.`);
   loadCourt().then(() => { fillLandmarks(); drawCal(); });
 }
 

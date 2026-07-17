@@ -250,3 +250,37 @@ def test_analyze_streams_end_to_end(client, video):
     assert body["n_frames"] == 60 and isinstance(body["shots"], list)  # 20 fps -> stride 1
     # persisted so the Review tab can load proposals
     assert client.get(f"/api/sessions/{s['sid']}").json()["analysis"]["n_frames"] == 60
+
+
+def test_calibration_and_rim_persist_and_restore(client, video):
+    s = _mksession(client, video)
+    court = get_court("nba")
+    H_true = np.array([[90.0, 4.0, 640.0], [-3.0, -55.0, 600.0], [0.0, 0.004, 1.0]])
+    lms = landmark_points(court)
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right",
+             "three_apex", "corner_three_right"]
+    pts = [{"name": n, "court": lms[n].tolist(),
+            "img": apply_homography(H_true, np.atleast_2d(lms[n]))[0].tolist()} for n in names]
+    client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "nba", "points": pts})
+    tt = np.linspace(0, 2 * np.pi, 9)[:-1]
+    client.post(f"/api/sessions/{s['sid']}/rim",
+                json={"points": np.stack([160 + 30 * np.cos(tt), 60 + 11 * np.sin(tt)], 1).tolist()})
+    # A fresh GET (as after a page reload) carries redraw data + the clicked points.
+    got = client.get(f"/api/sessions/{s['sid']}").json()
+    assert got["calibration"]["points"] and "three" in got["overlay_img"]
+    assert len(got["rim_polyline"]) > 10 and got["rim"] is not None
+
+
+def test_reopen_same_video_reuses_session(client, video):
+    s = _mksession(client, video)
+    court = get_court("nba")
+    H_true = np.array([[90.0, 4.0, 640.0], [-3.0, -55.0, 600.0], [0.0, 0.004, 1.0]])
+    lms = landmark_points(court)
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right", "three_apex"]
+    pts = [{"name": n, "court": lms[n].tolist(),
+            "img": apply_homography(H_true, np.atleast_2d(lms[n]))[0].tolist()} for n in names]
+    client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "nba", "points": pts})
+    # Opening the same path again returns the SAME session, calibration intact.
+    again = client.post("/api/sessions", json={"video_path": str(video)}).json()
+    assert again["sid"] == s["sid"] and again["calibration"] is not None
+    assert "overlay_img" in again
