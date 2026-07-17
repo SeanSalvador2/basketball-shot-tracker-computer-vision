@@ -175,11 +175,11 @@ function drawCal() {
       }
     }
     if (S.rimPoly) {
-      calCtx.strokeStyle = "#ff4444"; calCtx.lineWidth = 2;
+      calCtx.strokeStyle = "#00e5ff"; calCtx.lineWidth = 2;
       strokePoly(calCtx, S.rimPoly.map((p) => tx(toCanvas(p))), true);
     }
     S.calPoints.forEach((p) => { const q = tx(toCanvas(p.img)); dot(calCtx, q[0], q[1], "#ffd700", p.name); });
-    S.rimPoints.forEach((p) => { const q = tx(toCanvas(p)); dot(calCtx, q[0], q[1], "#ff4444"); });
+    S.rimPoints.forEach((p) => { const q = tx(toCanvas(p)); dot(calCtx, q[0], q[1], "#00e5ff"); });
   };
   calImg.src = frameURL(t);
 }
@@ -188,8 +188,10 @@ function strokePoly(ctx, pts, close) {
   if (close) ctx.closePath(); ctx.stroke();
 }
 function dot(ctx, x, y, color, label) {
-  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill();
-  if (label) { ctx.font = "12px sans-serif"; ctx.fillText(label, x + 7, y - 5); }
+  ctx.beginPath(); ctx.arc(x, y, 5, 0, 7);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = "#111"; ctx.stroke();
+  if (label) { ctx.font = "12px sans-serif"; ctx.fillStyle = color; ctx.fillText(label, x + 7, y - 5); }
 }
 
 function setStatus(msg) { $("cal-status").textContent = msg; }
@@ -296,7 +298,7 @@ $("btn-fit-rim").onclick = async () => {
     if (!S.sid) throw new Error("load a session first (Session tab)");
     const res = await jpost(`/api/sessions/${S.sid}/rim`, { points: S.rimPoints });
     S.rimPoly = res.polyline;
-    setStatus("rim fitted — the red ellipse should trace the rim; if not, undo and re-click");
+    setStatus("rim fitted — the cyan ellipse should trace the rim; if not, undo and re-click");
     drawCal();
   } catch (err) { setStatus(`fit rim: ${err.message}`); }
 };
