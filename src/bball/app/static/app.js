@@ -430,12 +430,23 @@ function renderEvents() {
       `${S.labels.length} proposals · ${nLabeled} labeled · ${nExcl} excluded (not counted)`;
   S.labels.forEach((row, i) => {
     if (hideExcl && row.verified === "excluded") return;
-    const rel = +row.t_release_s || 0, rim = +row.t_rim_s || rel + 1.5;
-    const start = rel - 1.2, end = rim + 1.5;      // isolate: just before release → just after rim
+    const rel = +row.t_release_s || 0;
+    // Flag a likely duplicate: an earlier, non-excluded proposal whose release is within
+    // ~2.5 s (one flight). The FSM cooldown catches most, but broken real-footage tracks
+    // can re-trigger — surfacing it lets you exclude the extra.
+    let dupOf = null;
+    for (let j = 0; j < i; j++) {
+      if (S.labels[j].verified === "excluded") continue;
+      if (Math.abs((+S.labels[j].t_release_s || 0) - rel) < 2.5) { dupOf = S.labels[j].shot_id; break; }
+    }
     const d = document.createElement("div");
     d.className = `event ${row.verified || ""}`;
-    d.innerHTML = `<b>#${row.shot_id}</b> ` +
-      `<button class="seek">▶ ${rel.toFixed(1)}s (clip ${Math.max(0, start).toFixed(1)}–${end.toFixed(1)})</button>`;
+    d.innerHTML = `<b>#${row.shot_id}</b> <button class="seek">▶ play @ ${rel.toFixed(1)}s</button>`;
+    if (dupOf !== null && row.verified !== "excluded") {
+      const w = document.createElement("span");
+      w.className = "dup-warn"; w.textContent = ` ⚠ maybe dup of #${dupOf}`;
+      d.appendChild(w);
+    }
     d.appendChild(select(OUTCOMES, row.outcome, (v) => edit(i, "outcome", v)));
     d.appendChild(select(DIRS, row.miss_direction, (v) => edit(i, "miss_direction", v), "dir"));
     d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
@@ -450,7 +461,14 @@ function renderEvents() {
       renderEvents(); scheduleAutosave();
     };
     d.appendChild(ex);
-    d.querySelector(".seek").onclick = () => playClip(start, end);
+    d.querySelector(".seek").onclick = () => {
+      const rel2 = +row.t_release_s || 0, rim2 = +row.t_rim_s || rel2 + 1.5;
+      const pre = parseFloat($("clip-pre") && $("clip-pre").value) || 3;
+      const post = parseFloat($("clip-post") && $("clip-post").value) || 5;
+      // Guard against imprecise detector timestamps: guarantee a wide-enough window even if
+      // rim_t is early/missing.
+      playClip(rel2 - pre, Math.max(rim2, rel2 + 2.0) + post);
+    };
     el.appendChild(d);
   });
 }

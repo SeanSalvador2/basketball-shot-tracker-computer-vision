@@ -33,6 +33,7 @@ video { width: 100%; max-height: 46vh; border-radius: 10px; background: #000; }
   border-radius: 10px; padding: 4px 8px; margin-top: 8px; background: #fbfaf6; }
 .event { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid #e2ddcd; border-radius: 10px; padding: 6px 10px; margin: 6px 0; }
 .event.excluded { opacity: .45; }
+.dup-warn { color: #b26b00; font-weight: 600; font-size: .85rem; }
 .event select { padding: 5px 6px; }
 table { border-collapse: collapse; margin: 10px 0; background: #fff; }
 td, th { border: 1px solid #ddd; padding: 6px 12px; text-align: left; }
