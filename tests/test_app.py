@@ -235,3 +235,18 @@ def test_overlay_math_round_trip(client, video):
     H_inv = np.array(state["calibration"]["H_img2court"])
     back = apply_homography(H_inv, overlay_three)
     assert np.allclose(back, three_point_polyline(court), atol=1e-6)
+
+
+def test_analyze_streams_end_to_end(client, video):
+    """Analyze runs the streaming pipeline over a clip and returns the analysis structure
+    without loading all frames at once (the OOM regression)."""
+    s = _mksession(client, video)
+    tt = np.linspace(0, 2 * np.pi, 9)[:-1]
+    rim_pts = np.stack([160 + 30 * np.cos(tt), 60 + 11 * np.sin(tt)], axis=1)
+    client.post(f"/api/sessions/{s['sid']}/rim", json={"points": rim_pts.tolist()})
+    r = client.post(f"/api/sessions/{s['sid']}/analyze", json={})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["n_frames"] == 60 and isinstance(body["shots"], list)  # 20 fps -> stride 1
+    # persisted so the Review tab can load proposals
+    assert client.get(f"/api/sessions/{s['sid']}").json()["analysis"]["n_frames"] == 60

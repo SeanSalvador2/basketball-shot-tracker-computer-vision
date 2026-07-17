@@ -27,7 +27,9 @@ from bball.lift import zones as zones_mod
 from bball.lift.court_model import get_court, landmark_points, paint_polygon, three_point_polyline
 from bball.lift.homography import apply_homography, estimate_homography, reprojection_errors
 from bball.lift.rim_frame import RimEllipse, conic_to_geometric, fit_ellipse
-from bball.pipeline import detect_ball_bgsub, track_and_classify
+from bball.detect.bgsub import BgSubBallDetector, BgSubConfig
+from bball.detect.interfaces import BallCandidate
+from bball.pipeline import track_and_classify
 
 STATIC_DIR = Path(__file__).parent / "static"
 DATA_ROOT = Path(__file__).resolve().parents[3] / "data" / "app_sessions"
@@ -344,45 +346,67 @@ async def analyze(sid: str, request: Request) -> dict:
     if state.get("rim") is None:
         raise HTTPException(400, "annotate the rim first (Calibrate tab)")
     rim = RimEllipse(**state["rim"])
+    calib = state.get("calibration")
     cap = cv2.VideoCapture(state["video"])
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     # Keep the *analyzed* rate near 30 fps: every 2nd frame at >=50 fps capture, every
     # frame below — the rim-interaction window is only ~0.1-0.15 s and needs the samples.
     stride = int(body.get("stride") or (2 if fps >= 50 else 1))
-    frames, native = [], []
-    keep_native = state.get("calibration") is not None
+
+    # Pass 1 — STREAM: one frame in RAM at a time. A full-length real clip is tens of
+    # thousands of 1080p frames (~6 MB each) — holding them all is >100 GB and OOMs. We
+    # keep only the featherweight per-frame ball candidates (a few numbers each).
+    detector = BgSubBallDetector(BgSubConfig(min_area=4, max_area=4000))
+    per_frame_raw: list[list[BallCandidate]] = []
     while True:
         ok, fr = cap.read()
         if not ok:
             break
-        frames.append(cv2.resize(fr, None, fx=scale, fy=scale))
-        native.append(fr if keep_native else None)
+        small = cv2.resize(fr, None, fx=scale, fy=scale)
+        per_frame_raw.append(detector.process_frame(small, len(per_frame_raw)))
         for _ in range(stride - 1):
             cap.grab()
-    cap.release()
-    times = np.arange(len(frames)) * (stride / fps)
-    cands = detect_ball_bgsub(frames, scale)
+        if len(per_frame_raw) % 500 == 0:
+            print(f"[analyze {sid}] {len(per_frame_raw)} frames processed", flush=True)
+
+    per_frame = BgSubBallDetector._temporal_filter(per_frame_raw)
+    cands: list[BallCandidate] = []
+    for i, cs in enumerate(per_frame):
+        valid = [c for c in cs if c.xy is not None]
+        if valid:
+            best = max(valid, key=lambda c: c.score)      # most ball-like blob this frame
+            cands.append(BallCandidate(i, best.xy / scale, best.score,
+                                       best.radius_px / scale, source="bgsub"))
+        else:
+            cands.append(BallCandidate(i, None))
+    n_proc = len(cands)
+    times = np.arange(n_proc) * (stride / fps)
     events = track_and_classify(cands, times, rim)
 
+    # Pass 2 — SEEK: read ONE native frame per event (at its release time) for the shooter
+    # lift, instead of holding every native frame from pass 1.
     shots = []
     for ev in events:
         shot = {"t_release_s": round(float(ev.release_t), 3),
                 "t_rim_s": round(float(ev.rim_t), 3),
                 "outcome": ev.outcome, "make_prob": round(float(ev.make_prob), 3),
                 "court_xy": None, "zone": ""}
-        if keep_native and state.get("calibration"):
-            k = int(np.clip(round(ev.release_t * fps / stride), 0, len(native) - 1))
-            ball = cands[k].xy / scale if cands[k].xy is not None else None
-            feet = _shooter_feet(native[k], ball)
-            if feet is not None:
-                from bball.pipeline import lift_shooter
+        if calib:
+            cap.set(cv2.CAP_PROP_POS_MSEC, float(ev.release_t) * 1000.0)
+            ok, native = cap.read()
+            if ok:
+                k = int(np.clip(round(ev.release_t * fps / stride), 0, n_proc - 1))
+                ball = cands[k].xy if cands[k].xy is not None else None  # already native px
+                feet = _shooter_feet(native, ball)
+                if feet is not None:
+                    from bball.pipeline import lift_shooter
 
-                H = np.array(state["calibration"]["H_img2court"])
-                z = lift_shooter(np.array(feet), H, get_court(state["spec"]))
-                shot["court_xy"], shot["zone"] = list(z["court_xy"]), z["zone"]
+                    H = np.array(calib["H_img2court"])
+                    z = lift_shooter(np.array(feet), H, get_court(state["spec"]))
+                    shot["court_xy"], shot["zone"] = list(z["court_xy"]), z["zone"]
         shots.append(shot)
-    state["analysis"] = {"shots": shots, "stride": stride, "scale": scale,
-                         "n_frames": len(frames)}
+    cap.release()
+    state["analysis"] = {"shots": shots, "stride": stride, "scale": scale, "n_frames": n_proc}
     _save(sid, state)
     return state["analysis"]
 
