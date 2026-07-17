@@ -73,8 +73,9 @@ def offset_three_polyline(court: CourtSpec, offset_m: float, n: int = 240) -> np
     theta = np.arctan2(yt, xc)
     arc_t = np.linspace(theta, np.pi - theta, n)
     arc = np.stack([R * np.cos(arc_t), R * np.sin(arc_t)], axis=1)
-    right = np.array([[xc, 0.0], [xc, yt]])
-    left = np.array([[-xc, yt], [-xc, 0.0]])
+    yb = -court.rim_from_baseline_m  # match the painted line, which runs to the baseline
+    right = np.array([[xc, yb], [xc, yt]])
+    left = np.array([[-xc, yt], [-xc, yb]])
     return np.vstack([right, arc, left])
 
 

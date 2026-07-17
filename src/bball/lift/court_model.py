@@ -163,14 +163,15 @@ def three_point_polyline(court: CourtSpec, n: int = 200) -> np.ndarray:
     theta = np.arctan2(yt, xc)  # angle where arc meets corner on the +x side
     arc_t = np.linspace(theta, np.pi - theta, n)
     arc = np.stack([R * np.cos(arc_t), R * np.sin(arc_t)], axis=1)
-    right = np.array([[xc, 0.0], [xc, yt]])
-    left = np.array([[-xc, yt], [-xc, 0.0]])
+    yb = -court.rim_from_baseline_m  # painted corner-3 lines run all the way to the baseline
+    right = np.array([[xc, yb], [xc, yt]])
+    left = np.array([[-xc, yt], [-xc, yb]])
     return np.vstack([right, arc, left])
 
 
 def paint_polygon(court: CourtSpec) -> np.ndarray:
     w = court.lane_half_width_m
-    y0, y1 = 0.0, court.ft_line_from_hoop_m
+    y0, y1 = -court.rim_from_baseline_m, court.ft_line_from_hoop_m  # lane runs baseline->FT
     return np.array([[-w, y0], [w, y0], [w, y1], [-w, y1], [-w, y0]])
 
 
@@ -196,6 +197,7 @@ def landmark_points(court: CourtSpec) -> dict[str, np.ndarray]:
         "ft_right": np.array([court.lane_half_width_m, court.ft_line_from_hoop_m]),
         "top_of_key": np.array([0.0, court.ft_line_from_hoop_m + FT_CIRCLE_RADIUS_M]),
         "three_apex": np.array([0.0, court.three_arc_radius_m]),
-        "corner_three_right": np.array([court.corner_three_dist_m, 0.0]),
-        "corner_three_left": np.array([-court.corner_three_dist_m, 0.0]),
+        # The crisp, painted reference on the corner-3 line is its baseline intersection.
+        "corner_three_right": np.array([court.corner_three_dist_m, yb]),
+        "corner_three_left": np.array([-court.corner_three_dist_m, yb]),
     }
