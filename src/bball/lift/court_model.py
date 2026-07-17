@@ -183,11 +183,11 @@ def landmark_points(court: CourtSpec) -> dict[str, np.ndarray]:
     for homography calibration. All derive from CourtSpec constants; more well-spread points
     is the A7 accuracy lever (skip any you cannot see crisply — 6 sharp beats 9 sloppy).
     Lane-space "blocks" are deliberately absent until their per-spec rulebook offsets are
-    added with citations."""
+    added with citations; the under-rim point is absent because it is not visually
+    identifiable (the rim's image position comes from the rim-ellipse annotation instead)."""
     sx = court.sideline_x_m
     yb = -court.rim_from_baseline_m  # baseline is behind the hoop (negative Y)
     return {
-        "hoop_ground": np.array([0.0, 0.0]),
         "baseline_left_corner": np.array([-sx, yb]),
         "baseline_right_corner": np.array([sx, yb]),
         "lane_baseline_left": np.array([-court.lane_half_width_m, yb]),

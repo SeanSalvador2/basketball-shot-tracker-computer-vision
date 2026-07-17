@@ -16,7 +16,7 @@ OUT = Path(__file__).resolve().parents[1] / "reports" / "figures" / "calibration
 
 # label offsets (metres) so the crowded baseline row stays readable
 OFF = {
-    "hoop_ground": (0.4, 0.35), "baseline_left_corner": (-1.2, -0.75),
+    "baseline_left_corner": (-1.2, -0.75),
     "baseline_right_corner": (-1.0, -0.75), "lane_baseline_left": (-1.4, -1.5),
     "lane_baseline_right": (-1.2, -1.5), "corner_three_left": (-0.6, 0.55),
     "corner_three_right": (-1.6, 0.55), "ft_left": (-3.3, 0.0), "ft_right": (0.4, 0.0),
