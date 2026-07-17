@@ -404,6 +404,7 @@ async function loadLabels(fresh) {
 
 const OUTCOMES = ["make", "miss"], DIRS = ["", "short", "long", "left", "right", "short-left", "short-right", "long-left", "long-right"];
 const TYPES = ["", "catch-and-shoot", "pull-up", "other"], QUAL = ["", "swish", "rim-in", "rattle"];
+const ZONES = ["", "short-range", "midrange", "3PT"];   // pipeline-computed; correct when wrong
 
 let clipStop = null;
 function playClip(startS, endS) {
@@ -444,16 +445,17 @@ function renderEvents() {
     d.innerHTML = `<b>#${row.shot_id}</b> <button class="seek">▶ play @ ${rel.toFixed(1)}s</button>`;
     if (dupOf !== null && row.verified !== "excluded") {
       const w = document.createElement("span");
-      w.className = "dup-warn"; w.textContent = ` ⚠ maybe dup of #${dupOf}`;
+      w.className = "dup-warn"; w.textContent = ` ⚠ overlaps #${dupOf} — keep the real one, ✕ the other`;
       d.appendChild(w);
     }
     d.appendChild(select(OUTCOMES, row.outcome, (v) => edit(i, "outcome", v)));
     d.appendChild(select(DIRS, row.miss_direction, (v) => edit(i, "miss_direction", v), "dir"));
     d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
     d.appendChild(select(QUAL, row.make_quality, (v) => edit(i, "make_quality", v), "quality"));
-    const zone = document.createElement("span");
-    zone.className = "muted"; zone.textContent = row.zone ? ` zone: ${row.zone}` : " zone: —";
-    d.appendChild(zone);
+    const zoneWrap = document.createElement("span");
+    zoneWrap.className = "muted"; zoneWrap.textContent = " zone: ";
+    zoneWrap.appendChild(select(ZONES, row.zone, (v) => edit(i, "zone", v), "zone"));
+    d.appendChild(zoneWrap);
     const ex = document.createElement("button");
     ex.textContent = row.verified === "excluded" ? "↺ restore" : "✕ not a shot";
     ex.onclick = () => {
