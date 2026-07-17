@@ -28,7 +28,7 @@ setup:
 	python3 -m venv $(VENV)
 	$(PY) -m pip install --upgrade pip
 	$(PY) -m pip install --index-url $(TORCH_CPU_INDEX) torch==2.8.0 torchvision==0.23.0
-	$(PY) -m pip install -e ".[dev]"
+	$(PY) -m pip install -e ".[dev,app]"
 
 test:
 	$(PY) -m pytest
