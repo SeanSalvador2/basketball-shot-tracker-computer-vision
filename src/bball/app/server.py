@@ -472,11 +472,14 @@ def analyze_progress(sid: str) -> dict:
 # Labels
 # --------------------------------------------------------------------------- #
 @app.get("/api/sessions/{sid}/labels")
-def get_labels(sid: str) -> dict:
+def get_labels(sid: str, fresh: bool = False) -> dict:
+    """Saved labels if present (the auto-saved working file), else fresh proposals from the
+    last analysis. `fresh=1` forces proposals even if a labels.csv exists — used right after
+    a re-run so new proposals aren't masked by an older saved file."""
     sdir = _sdir(sid)
     csv_path = sdir / "labels.csv"
-    if csv_path.exists():
-        return {"rows": load_csv(csv_path), "fields": FIELDS, "saved": True}
+    if not fresh and csv_path.exists():
+        return {"rows": load_csv(csv_path), "fields": FIELDS, "saved": "labels.csv"}
     state = _load(sid)
     shots = (state.get("analysis") or {}).get("shots", [])
     return {"rows": rows_from_report(shots), "fields": FIELDS, "saved": False}

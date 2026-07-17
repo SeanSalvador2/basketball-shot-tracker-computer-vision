@@ -342,17 +342,34 @@ $("btn-analyze").onclick = async () => {
     polling = false;
     $("review-status").textContent =
       `✅ DONE — ${res.shots.length} proposals from ${res.n_frames} frames. ` +
-      `Review & label them below (and add any it missed).`;
-    await loadLabels();
+      `Review & label them below (and add any it missed). Edits auto-save.`;
+    await loadLabels(true);            // fresh proposals, even if an old labels.csv exists
   } catch (err) {
     polling = false;
     $("review-status").textContent = `❌ analyze failed: ${err.message}`;
   } finally { $("btn-analyze").disabled = false; }
 };
 
-async function loadLabels() {
-  const res = await api(`/api/sessions/${S.sid}/labels`);
+function setAutosave(t) { const el = $("autosave-status"); if (el) el.textContent = t; }
+
+let autosaveTimer = null;
+function scheduleAutosave() {
+  setAutosave("● unsaved…");
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(doAutosave, 1000);
+}
+async function doAutosave() {
+  if (!S.sid || !S.labels) return;
+  try {
+    await jpost(`/api/sessions/${S.sid}/labels`, { rows: S.labels });  // writes labels.csv
+    setAutosave("auto-saved ✓");
+  } catch (e) { setAutosave(`⚠ autosave failed: ${e.message} — use Save labels.csv`); }
+}
+
+async function loadLabels(fresh) {
+  const res = await api(`/api/sessions/${S.sid}/labels${fresh ? "?fresh=1" : ""}`);
   S.labels = res.rows.map((r) => ({ ...r }));
+  setAutosave(res.saved ? "loaded saved labels ✓" : "proposals — edits auto-save");
   renderEvents();
 }
 
@@ -374,7 +391,10 @@ function renderEvents() {
     d.appendChild(zone);
     const ex = document.createElement("button");
     ex.textContent = row.verified === "excluded" ? "excluded" : "✕ exclude";
-    ex.onclick = () => { row.verified = row.verified === "excluded" ? "corrected" : "excluded"; renderEvents(); };
+    ex.onclick = () => {
+      row.verified = row.verified === "excluded" ? "corrected" : "excluded";
+      renderEvents(); scheduleAutosave();
+    };
     d.appendChild(ex);
     d.querySelector(".seek").onclick = () => {
       $("review-video").currentTime = Math.max(0, (+row.t_release_s || 0) - 2);
@@ -389,18 +409,24 @@ function select(opts, val, on, label) {
   s.value = val || ""; s.onchange = () => on(s.value);
   return s;
 }
-function edit(i, k, v) { S.labels[i][k] = v; if (!S.labels[i].verified) S.labels[i].verified = "corrected"; }
+function edit(i, k, v) {
+  S.labels[i][k] = v;
+  if (!S.labels[i].verified) S.labels[i].verified = "corrected";
+  scheduleAutosave();
+}
 
 $("btn-add-missed").onclick = () => {
   const t = $("review-video").currentTime;
   S.labels.push({ shot_id: S.labels.length, t_release_s: t.toFixed(2), t_rim_s: (t + 1.5).toFixed(2),
     outcome: "make", zone: "", spot_id: "", shot_type: "", miss_direction: "", make_quality: "",
     court_x_m: "", court_y_m: "", verified: "corrected", source: "manual" });
-  renderEvents();
+  renderEvents(); scheduleAutosave();
 };
 $("btn-save-labels").onclick = async () => {
-  S.labels.forEach((r) => { if (!r.verified) r.verified = "accepted"; });
+  clearTimeout(autosaveTimer);
+  S.labels.forEach((r) => { if (!r.verified) r.verified = "accepted"; });  // "I reviewed the rest"
   const res = await jpost(`/api/sessions/${S.sid}/labels`, { rows: S.labels });
+  setAutosave("saved ✓");
   $("review-status").textContent = `saved ${res.n} rows → ${res.saved}`;
 };
 

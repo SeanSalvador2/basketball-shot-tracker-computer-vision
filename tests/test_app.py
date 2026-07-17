@@ -295,3 +295,20 @@ def test_analyze_progress_reports_finished(client, video):
     client.post(f"/api/sessions/{s['sid']}/analyze", json={})
     prog = client.get(f"/api/sessions/{s['sid']}/analyze/progress").json()
     assert prog["state"] == "finished" and prog["done"] == 60
+
+
+def test_labels_fresh_bypasses_saved_csv(client, video):
+    """After a re-run, fresh=1 returns proposals even if a labels.csv already exists."""
+    s = _mksession(client, video)
+    # save a labels.csv (as autosave would)
+    client.post(f"/api/sessions/{s['sid']}/labels", json={"rows": [
+        {"shot_id": 0, "outcome": "make", "verified": "corrected", "source": "manual"}]})
+    saved = client.get(f"/api/sessions/{s['sid']}/labels").json()
+    assert saved["saved"] == "labels.csv" and len(saved["rows"]) == 1
+    # analysis produced its own proposals; fresh=1 must surface those, not the saved file
+    tt = np.linspace(0, 2 * np.pi, 9)[:-1]
+    client.post(f"/api/sessions/{s['sid']}/rim",
+                json={"points": np.stack([160 + 30 * np.cos(tt), 60 + 11 * np.sin(tt)], 1).tolist()})
+    client.post(f"/api/sessions/{s['sid']}/analyze", json={})
+    fresh = client.get(f"/api/sessions/{s['sid']}/labels?fresh=1").json()
+    assert fresh["saved"] in (False, None)  # proposals, not the saved csv
