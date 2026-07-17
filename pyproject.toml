@@ -7,7 +7,7 @@ name = "bball"
 version = "0.1.0"
 description = "Basketball shot tracking from a fixed phone camera — detect / track / lift / classify research pipeline (Stage A)."
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Sean Salvador" }]
 
