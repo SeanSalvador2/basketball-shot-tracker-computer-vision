@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from bball.app.labels import FIELDS, load_csv, rows_from_report, save_csv
 from bball.lift import zones as zones_mod
 from bball.lift.court_model import get_court, landmark_points, paint_polygon, three_point_polyline
-from bball.lift.homography import apply_homography, estimate_homography
+from bball.lift.homography import apply_homography, estimate_homography, reprojection_errors
 from bball.lift.rim_frame import RimEllipse, conic_to_geometric, fit_ellipse
 from bball.pipeline import detect_ball_bgsub, track_and_classify
 
@@ -194,8 +194,9 @@ async def calibrate(sid: str, request: Request) -> dict:
     merged: dict[tuple, dict] = {}
     for p in pts:
         key = (round(p["court"][0], 2), round(p["court"][1], 2))  # key only — never the value
-        merged.setdefault(key, {"court": p["court"], "imgs": []})["imgs"].append(p["img"])
-    pts = [{"court": v["court"], "img": np.mean(v["imgs"], axis=0).tolist()}
+        m = merged.setdefault(key, {"court": p["court"], "imgs": [], "name": p.get("name")})
+        m["imgs"].append(p["img"])
+    pts = [{"court": v["court"], "img": np.mean(v["imgs"], axis=0).tolist(), "name": v["name"]}
            for v in merged.values()]
     n_merged = len(body["points"]) - len(pts)
     if len(pts) < 4:
@@ -212,13 +213,45 @@ async def calibrate(sid: str, request: Request) -> dict:
         "n_inliers": res.n_inliers, "points": pts,
     }
     _save(sid, state)
+    # Per-landmark residuals over ALL points: which click (or court dimension) disagrees.
+    # (The estimator's own rms is inlier-only — RANSAC can mask a wrong spec by outlier-ing
+    # the landmarks that contradict it; the full-set numbers below cannot be fooled.)
+    errs = reprojection_errors(res.H, court_pts, img_pts)
+    residuals = {(p.get("name") or f"pt{i}"): round(float(e), 2)
+                 for i, (p, e) in enumerate(zip(pts, errs))}
+    # Try every named spec with the same clicks: a park court's paint often matches a
+    # different standard than the one selected — the ranking says which line you have.
+    # NOTE: rms must be over ALL correspondences here — RANSAC's inlier rms hides a wrong
+    # spec by discarding exactly the landmarks that disagree with it.
+    ranking = []
+    named = [p for p in pts if p.get("name")]
+    for spec_name in ("nba", "fiba", "hs"):
+        lms = landmark_points(get_court(spec_name))
+        sub = [(lms[p["name"]], p["img"]) for p in named if p["name"] in lms]
+        if len(sub) >= 4:
+            try:
+                c_pts = np.array([s[0] for s in sub], float)
+                i_pts = np.array([s[1] for s in sub], float)
+                r2 = estimate_homography(c_pts, i_pts)
+                rms_all = float(np.sqrt(np.mean(reprojection_errors(r2.H, c_pts, i_pts) ** 2)))
+                ranking.append({"spec": spec_name, "rms_px": round(rms_all, 2)})
+            except Exception:
+                pass
+    ranking.sort(key=lambda r: r["rms_px"])
+    rms_all_px = float(np.sqrt(np.mean(errs ** 2)))
+
     c = get_court(state["spec"])
+    yb, sx = -c.rim_from_baseline_m, c.sideline_x_m
+    boundary = np.array([[-sx, 12.73], [-sx, yb], [sx, yb], [sx, 12.73]])
     overlay = {
         "three": apply_homography(res.H, three_point_polyline(c)).tolist(),
         "paint": apply_homography(res.H, paint_polygon(c)).tolist(),
+        "boundary": apply_homography(res.H, boundary).tolist(),
     }
-    return {"rms_px": res.rms_reproj_error, "n_inliers": res.n_inliers,
+    return {"rms_px": res.rms_reproj_error, "rms_all_px": round(rms_all_px, 2),
+            "n_inliers": res.n_inliers,
             "n_points": res.n_points, "n_merged_duplicates": n_merged,
+            "residuals_px": residuals, "spec_ranking": ranking,
             "overlay_img": overlay}
 
 

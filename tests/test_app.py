@@ -152,3 +152,27 @@ def test_calibrate_merges_coincident_hs_landmarks(client, video):
     assert r.status_code == 200, r.text
     assert body["n_merged_duplicates"] == 1 and body["n_points"] == 5
     assert body["rms_px"] < 2.0
+
+
+def test_calibrate_spec_ranking_identifies_true_court(client, video):
+    s = _mksession(client, video)
+    hs = get_court("hs")
+    lms = landmark_points(hs)
+    H_true = np.array([[85.0, 3.0, 630.0], [-2.5, -52.0, 590.0], [0.0, 0.0035, 1.0]])
+    names = ["baseline_left_corner", "baseline_right_corner", "lane_baseline_left",
+             "lane_baseline_right", "ft_left", "ft_right", "three_apex"]
+    pts = [{"name": n, "court": lms[n].tolist(),
+            "img": apply_homography(H_true, np.atleast_2d(lms[n]))[0].tolist()}
+           for n in names]
+    # user selected the WRONG spec (nba) for clicks that came from an hs court
+    nba = landmark_points(get_court("nba"))
+    wrong = [{**p, "court": nba[p["name"]].tolist()} for p in pts]
+    r = client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "nba", "points": wrong})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert body["spec_ranking"][0]["spec"] == "hs"
+    assert body["spec_ranking"][0]["rms_px"] < 0.5
+    nba_rank = next(r for r in body["spec_ranking"] if r["spec"] == "nba")
+    assert nba_rank["rms_px"] > 3.0                 # wrong spec fits worse over ALL points
+    assert body["rms_all_px"] > body["spec_ranking"][0]["rms_px"]
+    assert "three_apex" in body["residuals_px"]

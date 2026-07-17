@@ -138,6 +138,13 @@ $("btn-undo").onclick = () => {
   setMode(S.mode);          // refresh the count in the status line
   drawCal();
 };
+$("btn-clear-cal").onclick = () => {
+  S.calPoints = []; S.rimPoints = []; S.overlay = null; S.rimPoly = null;
+  if ($("landmark-select").options.length) $("landmark-select").selectedIndex = 0;
+  setMode("cal");
+  setStatus("cleared — all points and overlay lines removed; start fresh from the first landmark");
+  drawCal();
+};
 
 calCanvas.addEventListener("click", (e) => {
   if (!S.sid) return;
@@ -167,9 +174,21 @@ $("btn-calibrate").onclick = async () => {
     const res = await jpost(`/api/sessions/${S.sid}/calibrate`,
       { spec: S.spec, points: S.calPoints });
     S.overlay = res.overlay_img;
-    setStatus(`calibrated: rms ${res.rms_px.toFixed(2)} px over ${res.n_points} pts ` +
-      `(${res.n_inliers} inliers) — green/blue lines should hug the paint & 3PT line; ` +
-      `re-click any landmark that looks off, then switch to rim mode`);
+    let msg = `calibrated: rms ${res.rms_all_px} px over all ${res.n_points} pts ` +
+      `(${res.n_inliers} inliers at ${res.rms_px.toFixed(2)} px).`;
+    const resid = Object.entries(res.residuals_px || {}).sort((a, b) => b[1] - a[1]);
+    if (resid.length && resid[0][1] > 3)
+      msg += ` Worst landmarks: ${resid.slice(0, 2).map(([n, e]) => `${n} ${e}px`).join(", ")}` +
+        ` — re-click those, or that court dimension differs from the spec.`;
+    const rank = res.spec_ranking || [];
+    const cur = rank.find((r) => r.spec === S.spec), best = rank[0];
+    if (cur && best && best.spec !== S.spec && best.rms_px * 1.5 < cur.rms_px)
+      msg += ` ⚠ Your clicks fit "${best.spec}" much better ` +
+        `(${best.rms_px}px vs ${cur.rms_px}px) — switch Court spec on the Session tab ` +
+        `and recalibrate.`;
+    else if (rank.length)
+      msg += ` Spec fit: ${rank.map((r) => `${r.spec} ${r.rms_px}px`).join(" · ")}.`;
+    setStatus(msg);
     drawCal();
   } catch (err) { setStatus(`calibrate: ${err.message}`); }
 };
