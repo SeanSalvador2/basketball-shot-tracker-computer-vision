@@ -376,12 +376,30 @@ async function loadLabels(fresh) {
 const OUTCOMES = ["make", "miss"], DIRS = ["", "short", "long", "left", "right", "short-left", "short-right", "long-left", "long-right"];
 const TYPES = ["", "catch-and-shoot", "pull-up", "other"], QUAL = ["", "swish", "rim-in", "rattle"];
 
+let clipStop = null;
+function playClip(startS, endS) {
+  const v = $("review-video");
+  if (clipStop) { v.removeEventListener("timeupdate", clipStop); clipStop = null; }
+  const start = Math.max(0, startS), end = Math.max(start + 0.3, endS);
+  v.currentTime = start;
+  clipStop = () => {
+    if (v.currentTime >= end) {
+      v.pause(); v.removeEventListener("timeupdate", clipStop); clipStop = null;
+    }
+  };
+  v.addEventListener("timeupdate", clipStop);
+  v.play();
+}
+
 function renderEvents() {
   const el = $("event-list"); el.innerHTML = "";
   S.labels.forEach((row, i) => {
+    const rel = +row.t_release_s || 0, rim = +row.t_rim_s || rel + 1.5;
+    const start = rel - 1.2, end = rim + 1.5;      // isolate: just before release → just after rim
     const d = document.createElement("div");
     d.className = `event ${row.verified || ""}`;
-    d.innerHTML = `<b>#${row.shot_id}</b> <button class="seek">▶ ${(+row.t_release_s || 0).toFixed(1)}s</button>`;
+    d.innerHTML = `<b>#${row.shot_id}</b> ` +
+      `<button class="seek">▶ ${rel.toFixed(1)}s (clip ${Math.max(0, start).toFixed(1)}–${end.toFixed(1)})</button>`;
     d.appendChild(select(OUTCOMES, row.outcome, (v) => edit(i, "outcome", v)));
     d.appendChild(select(DIRS, row.miss_direction, (v) => edit(i, "miss_direction", v), "dir"));
     d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
@@ -396,10 +414,7 @@ function renderEvents() {
       renderEvents(); scheduleAutosave();
     };
     d.appendChild(ex);
-    d.querySelector(".seek").onclick = () => {
-      $("review-video").currentTime = Math.max(0, (+row.t_release_s || 0) - 2);
-      $("review-video").play();
-    };
+    d.querySelector(".seek").onclick = () => playClip(start, end);
     el.appendChild(d);
   });
 }

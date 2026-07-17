@@ -24,6 +24,10 @@ canvas { width: 100%; height: auto; border-radius: 10px; border: 1px solid #d8d2
 #zone-canvas, #chart-canvas { background: #f7f3e8; max-width: 760px; display: block; }
 #cal-map { width: 270px; background: #f7f3e8; }
 video { width: 100%; max-height: 46vh; border-radius: 10px; background: #000; }
+/* Sticky video + scrollable event list so both are usable together. */
+#tab-review #review-video { position: sticky; top: 60px; z-index: 2; }
+#event-list { max-height: 44vh; overflow-y: auto; border: 1px solid #e2ddcd;
+  border-radius: 10px; padding: 4px 8px; margin-top: 8px; background: #fbfaf6; }
 .event { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid #e2ddcd; border-radius: 10px; padding: 6px 10px; margin: 6px 0; }
 .event.excluded { opacity: .45; }
 .event select { padding: 5px 6px; }
