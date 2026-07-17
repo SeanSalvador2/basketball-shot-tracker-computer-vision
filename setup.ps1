@@ -1,11 +1,11 @@
-# Windows setup (PowerShell) — equivalent of `make setup` + `make test`.
+# Windows setup (PowerShell) - equivalent of `make setup` + `make test`.
 # From the repo root:  powershell -ExecutionPolicy Bypass -File .\setup.ps1
 $ErrorActionPreference = "Stop"
 
 $ver = & python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
 Write-Host "python $ver detected"
 if ([version]$ver -lt [version]"3.11") {
-    Write-Host "Need Python 3.11+. With conda:  conda create -n bball python=3.11 -y ; conda activate bball  — then re-run."
+    Write-Host "Need Python 3.11+. With conda:  conda create -n bball python=3.11 -y ; conda activate bball ; then re-run this script."
     exit 1
 }
 
