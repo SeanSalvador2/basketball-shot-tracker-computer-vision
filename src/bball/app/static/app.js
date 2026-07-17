@@ -422,7 +422,14 @@ function playClip(startS, endS) {
 
 function renderEvents() {
   const el = $("event-list"); el.innerHTML = "";
+  const hideExcl = $("hide-excluded") && $("hide-excluded").checked;
+  const nExcl = S.labels.filter((r) => r.verified === "excluded").length;
+  const nLabeled = S.labels.filter((r) => r.verified && r.verified !== "excluded").length;
+  if ($("event-summary"))
+    $("event-summary").textContent =
+      `${S.labels.length} proposals · ${nLabeled} labeled · ${nExcl} excluded (not counted)`;
   S.labels.forEach((row, i) => {
+    if (hideExcl && row.verified === "excluded") return;
     const rel = +row.t_release_s || 0, rim = +row.t_rim_s || rel + 1.5;
     const start = rel - 1.2, end = rim + 1.5;      // isolate: just before release → just after rim
     const d = document.createElement("div");
@@ -437,7 +444,7 @@ function renderEvents() {
     zone.className = "muted"; zone.textContent = row.zone ? ` zone: ${row.zone}` : " zone: —";
     d.appendChild(zone);
     const ex = document.createElement("button");
-    ex.textContent = row.verified === "excluded" ? "excluded" : "✕ exclude";
+    ex.textContent = row.verified === "excluded" ? "↺ restore" : "✕ not a shot";
     ex.onclick = () => {
       row.verified = row.verified === "excluded" ? "corrected" : "excluded";
       renderEvents(); scheduleAutosave();
@@ -447,6 +454,8 @@ function renderEvents() {
     el.appendChild(d);
   });
 }
+if ($("hide-excluded")) $("hide-excluded").onchange = () => { if (S.labels) renderEvents(); };
+
 function select(opts, val, on, label) {
   const s = document.createElement("select");
   opts.forEach((o) => { const e = document.createElement("option"); e.value = o; e.textContent = o || (label ? `(${label})` : "(—)"); s.appendChild(e); });
