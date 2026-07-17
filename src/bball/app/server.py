@@ -191,11 +191,12 @@ async def calibrate(sid: str, request: Request) -> dict:
     # Merge correspondences whose court coordinates coincide (e.g. on HS courts the 3PT
     # apex IS the top of the key — 4.191 m + 1.829 m = 6.02 m = 19'9"): duplicate court
     # points add no constraint, and differing clicks on them would inject noise as signal.
-    merged: dict[tuple, list] = {}
+    merged: dict[tuple, dict] = {}
     for p in pts:
-        key = (round(p["court"][0], 2), round(p["court"][1], 2))
-        merged.setdefault(key, []).append(p["img"])
-    pts = [{"court": list(k), "img": np.mean(v, axis=0).tolist()} for k, v in merged.items()]
+        key = (round(p["court"][0], 2), round(p["court"][1], 2))  # key only — never the value
+        merged.setdefault(key, {"court": p["court"], "imgs": []})["imgs"].append(p["img"])
+    pts = [{"court": v["court"], "img": np.mean(v["imgs"], axis=0).tolist()}
+           for v in merged.values()]
     n_merged = len(body["points"]) - len(pts)
     if len(pts) < 4:
         raise HTTPException(400, "need >= 4 distinct correspondences")
