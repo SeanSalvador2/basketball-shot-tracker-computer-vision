@@ -118,6 +118,8 @@ function dot(ctx, x, y, color, label) {
   if (label) { ctx.font = "12px sans-serif"; ctx.fillText(label, x + 7, y - 5); }
 }
 
+function setStatus(msg) { $("cal-status").textContent = msg; }
+
 $("cal-time").oninput = drawCal;
 $("btn-mode-cal").onclick = () => setMode("cal");
 $("btn-mode-rim").onclick = () => setMode("rim");
@@ -125,8 +127,17 @@ function setMode(m) {
   S.mode = m;
   $("btn-mode-cal").classList.toggle("active", m === "cal");
   $("btn-mode-rim").classList.toggle("active", m === "rim");
+  setStatus(m === "rim"
+    ? `RIM MODE — click 5-6 points spread AROUND the rim ring (front edge, back edge, ` +
+      `sides), then press "Fit rim". Points so far: ${S.rimPoints.length}`
+    : `LANDMARK MODE — pick a landmark name, then click that exact spot on the frame ` +
+      `(dropdown auto-advances). Placed: ${S.calPoints.length}. Then press "Calibrate".`);
 }
-$("btn-undo").onclick = () => { (S.mode === "cal" ? S.calPoints : S.rimPoints).pop(); drawCal(); };
+$("btn-undo").onclick = () => {
+  (S.mode === "cal" ? S.calPoints : S.rimPoints).pop();
+  setMode(S.mode);          // refresh the count in the status line
+  drawCal();
+};
 
 calCanvas.addEventListener("click", (e) => {
   if (!S.sid) return;
@@ -140,25 +151,36 @@ calCanvas.addEventListener("click", (e) => {
     const opts = $("landmark-select").options;
     const i = [...opts].findIndex((o) => o.value === name);
     if (i < opts.length - 1) $("landmark-select").selectedIndex = i + 1;
-  } else S.rimPoints.push([x, y]);
+    setStatus(`placed "${name}" (${S.calPoints.length} landmarks). ` +
+      `Keep going or press "Calibrate" (needs >= 4; spread beats count).`);
+  } else {
+    S.rimPoints.push([x, y]);
+    setStatus(`rim points: ${S.rimPoints.length} — need >= 5 spread around the ring, ` +
+      `then press "Fit rim".`);
+  }
   drawCal();
 });
 
 $("btn-calibrate").onclick = async () => {
-  const res = await jpost(`/api/sessions/${S.sid}/calibrate`,
-    { spec: S.spec, points: S.calPoints });
-  S.overlay = res.overlay_img;
-  $("cal-status").textContent =
-    `calibrated: rms ${res.rms_px.toFixed(2)} px over ${res.n_points} pts ` +
-    `(${res.n_inliers} inliers) — green/blue lines should hug the paint & 3PT line; ` +
-    `re-click any landmark that looks off`;
-  drawCal();
+  try {
+    if (!S.sid) throw new Error("load a session first (Session tab)");
+    const res = await jpost(`/api/sessions/${S.sid}/calibrate`,
+      { spec: S.spec, points: S.calPoints });
+    S.overlay = res.overlay_img;
+    setStatus(`calibrated: rms ${res.rms_px.toFixed(2)} px over ${res.n_points} pts ` +
+      `(${res.n_inliers} inliers) — green/blue lines should hug the paint & 3PT line; ` +
+      `re-click any landmark that looks off, then switch to rim mode`);
+    drawCal();
+  } catch (err) { setStatus(`calibrate: ${err.message}`); }
 };
 $("btn-fit-rim").onclick = async () => {
-  const res = await jpost(`/api/sessions/${S.sid}/rim`, { points: S.rimPoints });
-  S.rimPoly = res.polyline;
-  $("cal-status").textContent = "rim fitted — red ellipse should trace the rim";
-  drawCal();
+  try {
+    if (!S.sid) throw new Error("load a session first (Session tab)");
+    const res = await jpost(`/api/sessions/${S.sid}/rim`, { points: S.rimPoints });
+    S.rimPoly = res.polyline;
+    setStatus("rim fitted — the red ellipse should trace the rim; if not, undo and re-click");
+    drawCal();
+  } catch (err) { setStatus(`fit rim: ${err.message}`); }
 };
 
 /* ---------------- review ---------------- */
