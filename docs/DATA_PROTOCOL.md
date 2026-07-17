@@ -68,9 +68,11 @@ session was accidentally shot in HDR: check it in the workbench Calibrate frame 
 view is the pipeline's view — the Review tab's player is browser-tone-mapped and will look
 better than what the model sees); if the Calibrate frame is washed out, tone-map once and
 analyze/label the SDR copy in a fresh session:
-`ffmpeg -i in.MOV -vf "zscale=t=linear:npl=100,tonemap=hable,zscale=p=bt709:t=bt709:m=bt709,format=yuv420p" -c:v libx264 -crf 18 -c:a copy out_sdr.mp4`
-(Windows: `winget install Gyan.FFmpeg` first). Keep the original as the raw record and note
-both files in the session metadata. Never edit in a photos app (unknown re-encode, timing metadata
+`python scripts/tonemap_hdr.py in.MOV out_sdr.mp4`
+(uses the ffmpeg bundled with the project venv; canonical chain
+zscale-linear → float → hable tonemap → BT.709, with an assumed-HLG fallback for
+tag-stripped files — the script prints which chain ran; record it in the metadata). Keep the
+original as the raw record and note both files in the session metadata. Never edit in a photos app (unknown re-encode, timing metadata
 risk). Note HDR capture in the session metadata either way.
 
 **Storage & recording pattern.** Turn on HEVC ("High Efficiency" in Settings → Camera →

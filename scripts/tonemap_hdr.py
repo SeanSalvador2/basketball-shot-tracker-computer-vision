@@ -16,12 +16,15 @@ import shutil
 import subprocess
 import sys
 
+# Canonical tonemap chain: linearize -> float -> 709 primaries -> hable -> 709 transfer.
+# The float step (gbrpf32le) is required by the tonemap filter.
+_TAIL = ("format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,"
+         "zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
 # Reference chain: trusts the file's HDR tags (normal for straight-off-iPhone footage).
-CHAIN_TAGGED = ("zscale=t=linear:npl=100,tonemap=hable,"
-                "zscale=p=bt709:t=bt709:m=bt709,format=yuv420p")
+CHAIN_TAGGED = f"zscale=t=linear:npl=100,{_TAIL}"
 # Fallback: some transfers strip HDR metadata — tell zscale the input is HLG/BT.2020.
-CHAIN_ASSUME_HLG = ("zscale=tin=arib-std-b67:pin=bt2020:min=bt2020nc:t=linear:npl=100,"
-                    "tonemap=hable,zscale=p=bt709:t=bt709:m=bt709,format=yuv420p")
+CHAIN_ASSUME_HLG = (f"zscale=rin=tv:tin=arib-std-b67:pin=bt2020:min=bt2020nc:"
+                    f"t=linear:npl=100,{_TAIL}")
 
 
 def find_ffmpeg(explicit: str | None) -> str:
