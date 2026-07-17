@@ -265,7 +265,6 @@ def _shooter_feet(frame: np.ndarray, ball_xy: np.ndarray | None):
 @app.post("/api/sessions/{sid}/analyze")
 async def analyze(sid: str, request: Request) -> dict:
     body = await request.json() if int(request.headers.get("content-length") or 0) else {}
-    stride = int(body.get("stride", 2))
     scale = float(body.get("scale", 0.5))
     state = _load(sid)
     if state.get("rim") is None:
@@ -273,6 +272,9 @@ async def analyze(sid: str, request: Request) -> dict:
     rim = RimEllipse(**state["rim"])
     cap = cv2.VideoCapture(state["video"])
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    # Keep the *analyzed* rate near 30 fps: every 2nd frame at >=50 fps capture, every
+    # frame below — the rim-interaction window is only ~0.1-0.15 s and needs the samples.
+    stride = int(body.get("stride") or (2 if fps >= 50 else 1))
     frames, native = [], []
     keep_native = state.get("calibration") is not None
     while True:
