@@ -10,6 +10,7 @@ State: one directory per session under data/app_sessions/<sid>/ (state.json + la
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 import time
@@ -368,24 +369,24 @@ def _shooter_feet(frame: np.ndarray, ball_xy: np.ndarray | None):
         return None
 
 
-@app.post("/api/sessions/{sid}/analyze")
-async def analyze(sid: str, request: Request) -> dict:
-    body = await request.json() if int(request.headers.get("content-length") or 0) else {}
-    scale = float(body.get("scale", 0.5))
+# Live progress for the (long-running) analyze pass, polled by the Review tab.
+_ANALYZE_PROGRESS: dict[str, dict] = {}
+
+
+def _run_analysis(sid: str, scale: float, stride_override) -> dict:
+    """The heavy analyze work (blocking). Runs in a worker thread; publishes progress to
+    _ANALYZE_PROGRESS so a concurrent /progress poll can report a live percentage."""
     state = _load(sid)
-    if state.get("rim") is None:
-        raise HTTPException(400, "annotate the rim first (Calibrate tab)")
     rim = RimEllipse(**state["rim"])
     calib = state.get("calibration")
     cap = cv2.VideoCapture(state["video"])
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    # Keep the *analyzed* rate near 30 fps: every 2nd frame at >=50 fps capture, every
-    # frame below — the rim-interaction window is only ~0.1-0.15 s and needs the samples.
-    stride = int(body.get("stride") or (2 if fps >= 50 else 1))
+    stride = int(stride_override or (2 if fps >= 50 else 1))
+    total = max(1, int((state.get("probe", {}).get("n_frames") or 0) / stride))
+    _ANALYZE_PROGRESS[sid] = {"state": "detecting", "done": 0, "total": total}
 
     # Pass 1 — STREAM: one frame in RAM at a time. A full-length real clip is tens of
-    # thousands of 1080p frames (~6 MB each) — holding them all is >100 GB and OOMs. We
-    # keep only the featherweight per-frame ball candidates (a few numbers each).
+    # thousands of 1080p frames (~6 MB each) — holding them all is >100 GB and OOMs.
     detector = BgSubBallDetector(BgSubConfig(min_area=4, max_area=4000))
     per_frame_raw: list[list[BallCandidate]] = []
     while True:
@@ -396,9 +397,10 @@ async def analyze(sid: str, request: Request) -> dict:
         per_frame_raw.append(detector.process_frame(small, len(per_frame_raw)))
         for _ in range(stride - 1):
             cap.grab()
-        if len(per_frame_raw) % 500 == 0:
-            print(f"[analyze {sid}] {len(per_frame_raw)} frames processed", flush=True)
+        if len(per_frame_raw) % 50 == 0:
+            _ANALYZE_PROGRESS[sid]["done"] = len(per_frame_raw)
 
+    _ANALYZE_PROGRESS[sid] = {"state": "tracking", "done": len(per_frame_raw), "total": total}
     per_frame = BgSubBallDetector._temporal_filter(per_frame_raw)
     cands: list[BallCandidate] = []
     for i, cs in enumerate(per_frame):
@@ -415,8 +417,9 @@ async def analyze(sid: str, request: Request) -> dict:
 
     # Pass 2 — SEEK: read ONE native frame per event (at its release time) for the shooter
     # lift, instead of holding every native frame from pass 1.
+    _ANALYZE_PROGRESS[sid] = {"state": "locating", "done": 0, "total": max(1, len(events))}
     shots = []
-    for ev in events:
+    for j, ev in enumerate(events):
         shot = {"t_release_s": round(float(ev.release_t), 3),
                 "t_rim_s": round(float(ev.rim_t), 3),
                 "outcome": ev.outcome, "make_prob": round(float(ev.make_prob), 3),
@@ -435,10 +438,34 @@ async def analyze(sid: str, request: Request) -> dict:
                     z = lift_shooter(np.array(feet), H, get_court(state["spec"]))
                     shot["court_xy"], shot["zone"] = list(z["court_xy"]), z["zone"]
         shots.append(shot)
+        _ANALYZE_PROGRESS[sid]["done"] = j + 1
     cap.release()
     state["analysis"] = {"shots": shots, "stride": stride, "scale": scale, "n_frames": n_proc}
     _save(sid, state)
+    _ANALYZE_PROGRESS[sid] = {"state": "finished", "done": n_proc, "total": total,
+                             "n_shots": len(shots)}
     return state["analysis"]
+
+
+@app.post("/api/sessions/{sid}/analyze")
+async def analyze(sid: str, request: Request) -> dict:
+    body = await request.json() if int(request.headers.get("content-length") or 0) else {}
+    scale = float(body.get("scale", 0.5))
+    state = _load(sid)
+    if state.get("rim") is None:
+        raise HTTPException(400, "annotate the rim first (Calibrate tab)")
+    # Run the blocking work in a thread so the event loop stays free to serve /progress.
+    try:
+        return await asyncio.get_event_loop().run_in_executor(
+            None, _run_analysis, sid, scale, body.get("stride"))
+    except Exception as exc:  # surface as a failed-state the poller can report
+        _ANALYZE_PROGRESS[sid] = {"state": "error", "error": str(exc)}
+        raise
+
+
+@app.get("/api/sessions/{sid}/analyze/progress")
+def analyze_progress(sid: str) -> dict:
+    return _ANALYZE_PROGRESS.get(sid, {"state": "idle"})
 
 
 # --------------------------------------------------------------------------- #

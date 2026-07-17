@@ -317,12 +317,37 @@ $("btn-fit-rim").onclick = async () => {
 
 /* ---------------- review ---------------- */
 $("btn-analyze").onclick = async () => {
-  $("review-status").textContent = "analyzing… (bg-sub spine; grab a coffee for long clips)";
+  if (!S.sid) { $("review-status").textContent = "load a session first"; return; }
+  $("btn-analyze").disabled = true;
+  $("review-status").textContent = "starting analysis…";
+  const PHASE = { detecting: "finding the ball in each frame",
+                  tracking: "linking the ball into trajectories",
+                  locating: "detecting shots & locating them" };
+  let polling = true;
+  (async () => {
+    while (polling) {
+      try {
+        const p = await api(`/api/sessions/${S.sid}/analyze/progress`);
+        if (p.state in PHASE) {
+          const pct = p.total ? Math.round((100 * p.done) / p.total) : 0;
+          $("review-status").textContent =
+            `⏳ ${PHASE[p.state]}… ${p.done}/${p.total} (${pct}%)`;
+        }
+      } catch (e) { /* progress is best-effort */ }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  })();
   try {
     const res = await jpost(`/api/sessions/${S.sid}/analyze`, {});
-    $("review-status").textContent = `${res.shots.length} proposals from ${res.n_frames} frames`;
+    polling = false;
+    $("review-status").textContent =
+      `✅ DONE — ${res.shots.length} proposals from ${res.n_frames} frames. ` +
+      `Review & label them below (and add any it missed).`;
     await loadLabels();
-  } catch (err) { $("review-status").textContent = err.message; }
+  } catch (err) {
+    polling = false;
+    $("review-status").textContent = `❌ analyze failed: ${err.message}`;
+  } finally { $("btn-analyze").disabled = false; }
 };
 
 async function loadLabels() {

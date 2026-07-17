@@ -284,3 +284,14 @@ def test_reopen_same_video_reuses_session(client, video):
     again = client.post("/api/sessions", json={"video_path": str(video)}).json()
     assert again["sid"] == s["sid"] and again["calibration"] is not None
     assert "overlay_img" in again
+
+
+def test_analyze_progress_reports_finished(client, video):
+    s = _mksession(client, video)
+    tt = np.linspace(0, 2 * np.pi, 9)[:-1]
+    client.post(f"/api/sessions/{s['sid']}/rim",
+                json={"points": np.stack([160 + 30 * np.cos(tt), 60 + 11 * np.sin(tt)], 1).tolist()})
+    assert client.get(f"/api/sessions/{s['sid']}/analyze/progress").json()["state"] == "idle"
+    client.post(f"/api/sessions/{s['sid']}/analyze", json={})
+    prog = client.get(f"/api/sessions/{s['sid']}/analyze/progress").json()
+    assert prog["state"] == "finished" and prog["done"] == 60
