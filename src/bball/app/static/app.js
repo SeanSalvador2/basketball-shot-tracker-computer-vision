@@ -29,6 +29,9 @@ document.querySelectorAll("#tabs button").forEach((b) =>
     if (b.dataset.tab === "calibrate") drawCal();
     if (b.dataset.tab === "zones") refreshZoneUI();
     if (b.dataset.tab === "results") refreshResults().catch(console.warn);
+    // Load saved labels/proposals when opening Review (survives reload/restart). Only when
+    // not already loaded for this session, so in-memory edits aren't clobbered.
+    if (b.dataset.tab === "review" && S.sid && !S.labels) loadLabels().catch(console.warn);
   }));
 
 /* ---------------- session ---------------- */
@@ -45,6 +48,7 @@ function setSession(state) {
   S.overlay = state.overlay_img || null;
   S.rimPoly = state.rim_polyline || null;
   S.rimPoints = []; S.zoomView = null; S.pendingZoom = false;
+  S.labels = null;                   // force a reload of this session's labels on Review open
   if ($("court-spec")) $("court-spec").value = S.spec;
   $("session-info").textContent =
     `session ${state.sid} · ${state.probe.duration_s.toFixed(1)}s @ ${state.probe.fps.toFixed(0)}fps ` +
@@ -369,7 +373,13 @@ async function doAutosave() {
 async function loadLabels(fresh) {
   const res = await api(`/api/sessions/${S.sid}/labels${fresh ? "?fresh=1" : ""}`);
   S.labels = res.rows.map((r) => ({ ...r }));
-  setAutosave(res.saved ? "loaded saved labels ✓" : "proposals — edits auto-save");
+  if (!S.labels.length) {
+    setAutosave("");
+    $("review-status").textContent = 'no proposals yet — press "Run analysis".';
+  } else {
+    setAutosave(res.saved ? `loaded ${S.labels.length} saved labels ✓`
+                          : `${S.labels.length} proposals — edits auto-save`);
+  }
   renderEvents();
 }
 
