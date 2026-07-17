@@ -129,3 +129,26 @@ def test_analyze_requires_rim(client, video):
     s = _mksession(client, video)
     r = client.post(f"/api/sessions/{s['sid']}/analyze", json={})
     assert r.status_code == 400 and "rim" in r.json()["detail"]
+
+
+def test_calibrate_merges_coincident_hs_landmarks(client, video):
+    s = _mksession(client, video)
+    court = get_court("hs")
+    lms = landmark_points(court)
+    # On HS courts three_apex == top_of_key (both 6.02 m): clicked at slightly
+    # different pixels, they must merge into one correspondence, not fight.
+    assert np.allclose(lms["three_apex"], lms["top_of_key"], atol=0.01)
+    H_true = np.array([[80.0, 2.0, 620.0], [-2.0, -50.0, 580.0], [0.0, 0.003, 1.0]])
+    names = ["baseline_left_corner", "baseline_right_corner", "ft_left", "ft_right",
+             "three_apex", "top_of_key"]
+    pts = []
+    for n in names:
+        ixy = apply_homography(H_true, np.atleast_2d(lms[n]))[0]
+        jitter = [1.5, -1.0] if n == "top_of_key" else [0.0, 0.0]
+        pts.append({"name": n, "court": lms[n].tolist(),
+                    "img": (ixy + jitter).tolist()})
+    r = client.post(f"/api/sessions/{s['sid']}/calibrate", json={"spec": "hs", "points": pts})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert body["n_merged_duplicates"] == 1 and body["n_points"] == 5
+    assert body["rms_px"] < 2.0

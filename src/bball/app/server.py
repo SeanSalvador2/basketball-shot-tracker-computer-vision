@@ -188,8 +188,17 @@ def get_video(sid: str, request: Request):
 async def calibrate(sid: str, request: Request) -> dict:
     body = await request.json()
     pts = body["points"]
+    # Merge correspondences whose court coordinates coincide (e.g. on HS courts the 3PT
+    # apex IS the top of the key — 4.191 m + 1.829 m = 6.02 m = 19'9"): duplicate court
+    # points add no constraint, and differing clicks on them would inject noise as signal.
+    merged: dict[tuple, list] = {}
+    for p in pts:
+        key = (round(p["court"][0], 2), round(p["court"][1], 2))
+        merged.setdefault(key, []).append(p["img"])
+    pts = [{"court": list(k), "img": np.mean(v, axis=0).tolist()} for k, v in merged.items()]
+    n_merged = len(body["points"]) - len(pts)
     if len(pts) < 4:
-        raise HTTPException(400, "need >= 4 correspondences")
+        raise HTTPException(400, "need >= 4 distinct correspondences")
     court_pts = np.array([p["court"] for p in pts], float)
     img_pts = np.array([p["img"] for p in pts], float)
     res = estimate_homography(court_pts, img_pts)  # court -> image
@@ -208,7 +217,8 @@ async def calibrate(sid: str, request: Request) -> dict:
         "paint": apply_homography(res.H, paint_polygon(c)).tolist(),
     }
     return {"rms_px": res.rms_reproj_error, "n_inliers": res.n_inliers,
-            "n_points": res.n_points, "overlay_img": overlay}
+            "n_points": res.n_points, "n_merged_duplicates": n_merged,
+            "overlay_img": overlay}
 
 
 @app.post("/api/sessions/{sid}/rim")
