@@ -23,6 +23,9 @@ label.file input { display: none; }
 canvas { width: 100%; height: auto; border-radius: 10px; border: 1px solid #d8d2c0; background: #000; touch-action: manipulation; }
 #zone-canvas, #chart-canvas { background: #f7f3e8; max-width: 760px; display: block; }
 #cal-map { width: 270px; background: #f7f3e8; }
+.session-row { display: flex; gap: 4px; align-items: center; margin: 3px 0; }
+.session-row .session-open { flex: 1; text-align: left; }
+.session-row button:not(.session-open) { padding: 6px 9px; }
 video { width: 100%; max-height: 46vh; border-radius: 10px; background: #000; }
 /* Sticky video + scrollable event list so both are usable together. */
 #tab-review #review-video { position: sticky; top: 60px; z-index: 2; }

@@ -51,7 +51,8 @@ function setSession(state) {
   S.labels = null;                   // force a reload of this session's labels on Review open
   if ($("court-spec")) $("court-spec").value = S.spec;
   $("session-info").textContent =
-    `session ${state.sid} · ${state.probe.duration_s.toFixed(1)}s @ ${state.probe.fps.toFixed(0)}fps ` +
+    `${state.name ? `"${state.name}" · ` : ""}${state.sid} · ` +
+    `${state.probe.duration_s.toFixed(1)}s @ ${state.probe.fps.toFixed(0)}fps ` +
     `· ${state.probe.w}x${state.probe.h} · calibrated: ${!!state.calibration} · rim: ${!!state.rim}`;
   $("cal-time").max = Math.max(1, state.probe.duration_s - 0.05);
   $("review-video").src = `/api/sessions/${S.sid}/video`;
@@ -74,12 +75,30 @@ $("court-spec").onchange = (e) => { S.spec = e.target.value; loadCourt().then(fi
 
 async function listSessions() {
   const xs = await api("/api/sessions");
-  $("session-list").innerHTML = xs.length ? "" : "none yet";
+  const host = $("session-list"); host.innerHTML = xs.length ? "" : "none yet";
   xs.forEach((s) => {
-    const b = document.createElement("button");
-    b.textContent = `${s.sid} ${s.calibrated ? "📐" : ""}${s.rim ? "⭕" : ""}`;
-    b.onclick = async () => setSession(await api(`/api/sessions/${s.sid}`));
-    $("session-list").appendChild(b);
+    const row = document.createElement("div"); row.className = "session-row";
+    const open = document.createElement("button"); open.className = "session-open";
+    open.textContent = `${s.name || s.sid} ${s.calibrated ? "📐" : ""}${s.rim ? "⭕" : ""}`;
+    open.title = s.video;
+    open.onclick = async () => setSession(await api(`/api/sessions/${s.sid}`));
+    const rn = document.createElement("button"); rn.textContent = "✎"; rn.title = "rename";
+    rn.onclick = async () => {
+      const name = prompt("Session name:", s.name || "");
+      if (name === null) return;
+      await jpost(`/api/sessions/${s.sid}/rename`, { name });
+      listSessions();
+    };
+    const del = document.createElement("button"); del.textContent = "🗑"; del.title = "delete";
+    del.onclick = async () => {
+      if (!confirm(`Delete "${s.name || s.sid}"? Removes its calibration, rim, labels and ` +
+                   `analysis (your original video file is NOT deleted).`)) return;
+      await api(`/api/sessions/${s.sid}`, { method: "DELETE" });
+      if (S.sid === s.sid) { S.sid = null; S.labels = null; $("session-info").textContent = "no session"; }
+      listSessions();
+    };
+    row.append(open, rn, del);
+    host.appendChild(row);
   });
 }
 listSessions().catch(console.warn);

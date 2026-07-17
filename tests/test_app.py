@@ -312,3 +312,16 @@ def test_labels_fresh_bypasses_saved_csv(client, video):
     client.post(f"/api/sessions/{s['sid']}/analyze", json={})
     fresh = client.get(f"/api/sessions/{s['sid']}/labels?fresh=1").json()
     assert fresh["saved"] in (False, None)  # proposals, not the saved csv
+
+
+def test_rename_and_delete_session(client, video):
+    s = _mksession(client, video)
+    sid = s["sid"]
+    r = client.post(f"/api/sessions/{sid}/rename", json={"name": "Court A · diagonal"})
+    assert r.status_code == 200 and r.json()["name"] == "Court A · diagonal"
+    listing = client.get("/api/sessions").json()
+    assert any(x["sid"] == sid and x["name"] == "Court A · diagonal" for x in listing)
+    d = client.request("DELETE", f"/api/sessions/{sid}")
+    assert d.status_code == 200 and d.json()["deleted"] == sid
+    assert all(x["sid"] != sid for x in client.get("/api/sessions").json())
+    assert client.get(f"/api/sessions/{sid}").status_code == 404

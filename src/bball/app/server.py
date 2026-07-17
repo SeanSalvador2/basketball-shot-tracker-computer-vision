@@ -168,10 +168,26 @@ def list_sessions() -> list[dict]:
         f = d / "state.json"
         if f.exists():
             s = json.loads(f.read_text())
-            out.append({"sid": s["sid"], "video": s["video"],
+            out.append({"sid": s["sid"], "name": s.get("name", ""), "video": s["video"],
                         "calibrated": s.get("calibration") is not None,
                         "rim": s.get("rim") is not None})
     return out
+
+
+@app.post("/api/sessions/{sid}/rename")
+async def rename_session(sid: str, request: Request) -> dict:
+    name = ((await request.json()).get("name") or "").strip()
+    state = _load(sid)
+    state["name"] = name
+    _save(sid, state)
+    return {"sid": sid, "name": name}
+
+
+@app.delete("/api/sessions/{sid}")
+def delete_session(sid: str) -> dict:
+    shutil.rmtree(_sdir(sid))         # removes calibration/labels/analysis, not the source video
+    _ANALYZE_PROGRESS.pop(sid, None)
+    return {"deleted": sid}
 
 
 @app.get("/api/sessions/{sid}")
