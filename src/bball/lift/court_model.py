@@ -174,17 +174,27 @@ def paint_polygon(court: CourtSpec) -> np.ndarray:
     return np.array([[-w, y0], [w, y0], [w, y1], [-w, y1], [-w, y0]])
 
 
+FT_CIRCLE_RADIUS_M = 1.8288  # free-throw circle radius, 6 ft — identical in all specs
+
+
 def landmark_points(court: CourtSpec) -> dict[str, np.ndarray]:
     """Canonical court landmarks in hoop-centred metres — the correspondences a user clicks
-    for homography calibration (corners, FT line, arc apex, lane corners)."""
+    for homography calibration. All derive from CourtSpec constants; more well-spread points
+    is the A7 accuracy lever (skip any you cannot see crisply — 6 sharp beats 9 sloppy).
+    Lane-space "blocks" are deliberately absent until their per-spec rulebook offsets are
+    added with citations."""
     sx = court.sideline_x_m
     yb = -court.rim_from_baseline_m  # baseline is behind the hoop (negative Y)
     return {
         "hoop_ground": np.array([0.0, 0.0]),
         "baseline_left_corner": np.array([-sx, yb]),
         "baseline_right_corner": np.array([sx, yb]),
+        "lane_baseline_left": np.array([-court.lane_half_width_m, yb]),
+        "lane_baseline_right": np.array([court.lane_half_width_m, yb]),
         "ft_left": np.array([-court.lane_half_width_m, court.ft_line_from_hoop_m]),
+        "ft_center": np.array([0.0, court.ft_line_from_hoop_m]),
         "ft_right": np.array([court.lane_half_width_m, court.ft_line_from_hoop_m]),
+        "top_of_key": np.array([0.0, court.ft_line_from_hoop_m + FT_CIRCLE_RADIUS_M]),
         "three_apex": np.array([0.0, court.three_arc_radius_m]),
         "corner_three_right": np.array([court.corner_three_dist_m, 0.0]),
         "corner_three_left": np.array([-court.corner_three_dist_m, 0.0]),
