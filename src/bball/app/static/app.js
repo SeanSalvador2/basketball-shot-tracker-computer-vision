@@ -431,7 +431,7 @@ function drawTimeline() {
   ctx.strokeStyle = "#1a7837"; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(xr, 12); ctx.lineTo(xr, 40); ctx.stroke();
   ctx.fillStyle = "#1a7837"; ctx.fillText("◉ shot here", xr - 26, 10);
-  if (c.rim) {                                                                  // rim-arrival marker
+  if (c.rim && c.rim >= c.start && c.rim <= c.end) {                            // rim-arrival marker
     const xm = X(c.rim); ctx.strokeStyle = "#4393c3"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(xm, 18); ctx.lineTo(xm, 40); ctx.stroke();
     ctx.fillStyle = "#4393c3"; ctx.fillText("rim", xm - 8, 51);
@@ -447,7 +447,11 @@ function drawTimeline() {
 
 $("review-video").addEventListener("timeupdate", () => {
   const c = S.activeClip; if (!c) return;
-  if ($("review-video").currentTime >= c.end) $("review-video").pause();
+  // Pause once at the clip end (no overlap into the next shot). If the user then presses
+  // play, let it continue — one auto-stop, manual override allowed.
+  if (!c.stopped && $("review-video").currentTime >= c.end) {
+    $("review-video").pause(); c.stopped = true;
+  }
   drawTimeline();
 });
 
@@ -464,7 +468,19 @@ function renderEvents() {
     const rel = +row.t_release_s || 0, rimT = +row.t_rim_s || rel + 1.5;
     const pre = parseFloat(($("clip-pre") || {}).value) || 3;
     const post = parseFloat(($("clip-post") || {}).value) || 5;
-    const cs = Math.max(0, rel - pre), ce = Math.max(rimT, rel + 2.0) + post;   // dedicated window
+    // Non-overlapping windows: clamp each clip to the midpoint between its shot and the
+    // neighbouring shots, so a clip can never reach an adjacent proposal's shot.
+    let prevRel = -Infinity, nextRel = Infinity;
+    S.labels.forEach((o, j) => {
+      if (j === i) return;
+      const rj = +o.t_release_s || 0;
+      if (rj < rel && rj > prevRel) prevRel = rj;
+      if (rj > rel && rj < nextRel) nextRel = rj;
+    });
+    const lowBound = isFinite(prevRel) ? (prevRel + rel) / 2 : 0;
+    const highBound = isFinite(nextRel) ? (rel + nextRel) / 2 : Infinity;
+    const cs = Math.max(0, rel - pre, lowBound);
+    const ce = Math.min(Math.max(rimT, rel + 2.0) + post, highBound);           // dedicated window
     // Flag a likely duplicate: an earlier, non-excluded proposal whose release is within
     // ~2.5 s (one flight). The FSM cooldown catches most, but broken real-footage tracks
     // can re-trigger — surfacing it lets you exclude the extra.
