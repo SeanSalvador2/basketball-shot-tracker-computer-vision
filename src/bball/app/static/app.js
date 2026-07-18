@@ -468,19 +468,21 @@ function renderEvents() {
     const rel = +row.t_release_s || 0, rimT = +row.t_rim_s || rel + 1.5;
     const pre = parseFloat(($("clip-pre") || {}).value) || 3;
     const post = parseFloat(($("clip-post") || {}).value) || 5;
-    // Non-overlapping windows: clamp each clip to the midpoint between its shot and the
-    // neighbouring shots, so a clip can never reach an adjacent proposal's shot.
-    let prevRel = -Infinity, nextRel = Infinity;
-    S.labels.forEach((o, j) => {
-      if (j === i) return;
-      const rj = +o.t_release_s || 0;
-      if (rj < rel && rj > prevRel) prevRel = rj;
-      if (rj > rel && rj < nextRel) nextRel = rj;
-    });
-    const lowBound = isFinite(prevRel) ? (prevRel + rel) / 2 : 0;
-    const highBound = isFinite(nextRel) ? (rel + nextRel) / 2 : Infinity;
-    const cs = Math.max(0, rel - pre, lowBound);
-    const ce = Math.min(Math.max(rimT, rel + 2.0) + post, highBound);           // dedicated window
+    // Base window = the predetermined padding (fixed duration). With "prevent overlap" on,
+    // clamp to the midpoint between this shot and its neighbours ONLY when the fixed windows
+    // would collide — so normal well-spaced shots keep exactly their padding.
+    let cs = Math.max(0, rel - pre), ce = Math.max(rimT, rel + 2.0) + post;
+    if (!$("no-overlap") || $("no-overlap").checked) {
+      let prevRel = -Infinity, nextRel = Infinity;
+      S.labels.forEach((o, j) => {
+        if (j === i) return;
+        const rj = +o.t_release_s || 0;
+        if (rj < rel && rj > prevRel) prevRel = rj;
+        if (rj > rel && rj < nextRel) nextRel = rj;
+      });
+      if (isFinite(prevRel)) cs = Math.max(cs, (prevRel + rel) / 2);
+      if (isFinite(nextRel)) ce = Math.min(ce, (rel + nextRel) / 2);
+    }
     // Flag a likely duplicate: an earlier, non-excluded proposal whose release is within
     // ~2.5 s (one flight). The FSM cooldown catches most, but broken real-footage tracks
     // can re-trigger — surfacing it lets you exclude the extra.
@@ -519,7 +521,7 @@ function renderEvents() {
   });
 }
 if ($("hide-excluded")) $("hide-excluded").onchange = () => { if (S.labels) renderEvents(); };
-["clip-pre", "clip-post"].forEach((id) => {
+["clip-pre", "clip-post", "no-overlap"].forEach((id) => {
   const el = $(id); if (el) el.onchange = () => { if (S.labels) renderEvents(); };
 });
 
