@@ -403,8 +403,12 @@ async function loadLabels(fresh) {
 }
 
 const OUTCOMES = ["make", "miss"], DIRS = ["", "short", "long", "left", "right", "short-left", "short-right", "long-left", "long-right"];
-const TYPES = ["", "catch-and-shoot", "pull-up", "other"], QUAL = ["", "swish", "rim-in", "rattle"];
-const ZONES = ["", "short-range", "midrange", "3PT"];   // pipeline-computed; correct when wrong
+const TYPES = ["", "catch-and-shoot", "pull-up", "other"];
+// Make quality only for midrange/3PT makes: swish (little/no rim) vs rattle-in (hit rim).
+const QUAL = [["", "(quality)"], ["swish", "swish (clean)"], ["rattle-in", "rattle-in (rim)"]];
+// Zone value stays canonical ("short-range") to match the pipeline; label is friendlier.
+const ZONES = [["", "(zone)"], ["short-range", "short range / layup"],
+               ["midrange", "midrange"], ["3PT", "3PT"]];
 
 function playClip(startS, endS, meta) {
   const v = $("review-video");
@@ -456,7 +460,7 @@ $("review-video").addEventListener("timeupdate", () => {
 });
 
 function renderEvents() {
-  const el = $("event-list"); el.innerHTML = "";
+  const el = $("event-list"); const savedScroll = el.scrollTop; el.innerHTML = "";
   const hideExcl = $("hide-excluded") && $("hide-excluded").checked;
   const nExcl = S.labels.filter((r) => r.verified === "excluded").length;
   const nLabeled = S.labels.filter((r) => r.verified && r.verified !== "excluded").length;
@@ -500,14 +504,20 @@ function renderEvents() {
       w.className = "dup-warn"; w.textContent = ` ⚠ overlaps #${dupOf} — keep the real one, ✕ the other`;
       d.appendChild(w);
     }
-    d.appendChild(select(OUTCOMES, row.outcome, (v) => edit(i, "outcome", v)));
-    d.appendChild(select(DIRS, row.miss_direction, (v) => edit(i, "miss_direction", v), "dir"));
-    d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
-    d.appendChild(select(QUAL, row.make_quality, (v) => edit(i, "make_quality", v), "quality"));
+    // outcome (re-render so conditional fields below appear/disappear)
+    d.appendChild(select(OUTCOMES, row.outcome, (v) => { edit(i, "outcome", v); renderEvents(); }));
+    // zone (re-render: gates whether make-quality is asked)
     const zoneWrap = document.createElement("span");
     zoneWrap.className = "muted"; zoneWrap.textContent = " zone: ";
-    zoneWrap.appendChild(select(ZONES, row.zone, (v) => edit(i, "zone", v), "zone"));
+    zoneWrap.appendChild(select(ZONES, row.zone, (v) => { edit(i, "zone", v); renderEvents(); }));
     d.appendChild(zoneWrap);
+    // miss direction — only for misses
+    if (row.outcome === "miss")
+      d.appendChild(select(DIRS, row.miss_direction, (v) => edit(i, "miss_direction", v), "dir"));
+    // make quality — only for MADE midrange/3PT shots (layups don't need it)
+    if (row.outcome === "make" && (row.zone === "midrange" || row.zone === "3PT"))
+      d.appendChild(select(QUAL, row.make_quality, (v) => edit(i, "make_quality", v), "quality"));
+    d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
     const ex = document.createElement("button");
     ex.textContent = row.verified === "excluded" ? "↺ restore" : "✕ not a shot";
     ex.onclick = () => {
@@ -519,6 +529,7 @@ function renderEvents() {
       playClip(cs, ce, { rel, rim: rimT, shotId: row.shot_id });
     el.appendChild(d);
   });
+  el.scrollTop = savedScroll;          // keep place across re-renders (outcome/zone toggles)
 }
 if ($("hide-excluded")) $("hide-excluded").onchange = () => { if (S.labels) renderEvents(); };
 ["clip-pre", "clip-post", "no-overlap"].forEach((id) => {
@@ -527,7 +538,11 @@ if ($("hide-excluded")) $("hide-excluded").onchange = () => { if (S.labels) rend
 
 function select(opts, val, on, label) {
   const s = document.createElement("select");
-  opts.forEach((o) => { const e = document.createElement("option"); e.value = o; e.textContent = o || (label ? `(${label})` : "(—)"); s.appendChild(e); });
+  opts.forEach((o) => {                             // o is a string, or [value, displayLabel]
+    const ov = Array.isArray(o) ? o[0] : o;
+    const ot = Array.isArray(o) ? o[1] : (o || (label ? `(${label})` : "(—)"));
+    const e = document.createElement("option"); e.value = ov; e.textContent = ot; s.appendChild(e);
+  });
   s.value = val || ""; s.onchange = () => on(s.value);
   return s;
 }
