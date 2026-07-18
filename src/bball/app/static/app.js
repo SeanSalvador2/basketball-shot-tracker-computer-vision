@@ -406,20 +406,50 @@ const OUTCOMES = ["make", "miss"], DIRS = ["", "short", "long", "left", "right",
 const TYPES = ["", "catch-and-shoot", "pull-up", "other"], QUAL = ["", "swish", "rim-in", "rattle"];
 const ZONES = ["", "short-range", "midrange", "3PT"];   // pipeline-computed; correct when wrong
 
-let clipStop = null;
-function playClip(startS, endS) {
+function playClip(startS, endS, meta) {
   const v = $("review-video");
-  if (clipStop) { v.removeEventListener("timeupdate", clipStop); clipStop = null; }
-  const start = Math.max(0, startS), end = Math.max(start + 0.3, endS);
-  v.currentTime = start;
-  clipStop = () => {
-    if (v.currentTime >= end) {
-      v.pause(); v.removeEventListener("timeupdate", clipStop); clipStop = null;
-    }
-  };
-  v.addEventListener("timeupdate", clipStop);
+  S.activeClip = { start: Math.max(0, startS), end: Math.max(startS + 0.3, endS), ...(meta || {}) };
+  v.currentTime = S.activeClip.start;
+  drawTimeline();
   v.play();
 }
+
+function drawTimeline() {
+  const cv = $("clip-timeline"); if (!cv) return;
+  const ctx = cv.getContext("2d"); ctx.clearRect(0, 0, cv.width, cv.height);
+  const cap = $("clip-caption"), c = S.activeClip, v = $("review-video");
+  if (!c) {
+    ctx.fillStyle = "#999"; ctx.font = "13px sans-serif";
+    ctx.fillText("press ▶ on a shot to play its clip", 12, 30);
+    if (cap) cap.textContent = ""; return;
+  }
+  const span = c.end - c.start || 1;
+  const X = (t) => 12 + ((t - c.start) / span) * (cv.width - 24);
+  ctx.fillStyle = "#ddd8c8"; ctx.fillRect(12, 24, cv.width - 24, 8);           // track
+  ctx.font = "bold 11px sans-serif";
+  const xr = X(c.rel);                                                          // release marker
+  ctx.strokeStyle = "#1a7837"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(xr, 12); ctx.lineTo(xr, 40); ctx.stroke();
+  ctx.fillStyle = "#1a7837"; ctx.fillText("◉ shot here", xr - 26, 10);
+  if (c.rim) {                                                                  // rim-arrival marker
+    const xm = X(c.rim); ctx.strokeStyle = "#4393c3"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(xm, 18); ctx.lineTo(xm, 40); ctx.stroke();
+    ctx.fillStyle = "#4393c3"; ctx.fillText("rim", xm - 8, 51);
+  }
+  const xp = X(Math.min(Math.max(v.currentTime, c.start), c.end));             // playhead
+  ctx.strokeStyle = "#c1272d"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(xp, 20); ctx.lineTo(xp, 44); ctx.stroke();
+  ctx.fillStyle = "#c1272d"; ctx.beginPath(); ctx.arc(xp, 20, 4, 0, 7); ctx.fill();
+  if (cap) cap.textContent =
+    `clip #${c.shotId}: ${c.start.toFixed(1)}–${c.end.toFixed(1)}s — THIS proposal's shot is ` +
+    `at the green “◉ shot here” mark (${c.rel.toFixed(1)}s). If nothing happens there, it's not a shot.`;
+}
+
+$("review-video").addEventListener("timeupdate", () => {
+  const c = S.activeClip; if (!c) return;
+  if ($("review-video").currentTime >= c.end) $("review-video").pause();
+  drawTimeline();
+});
 
 function renderEvents() {
   const el = $("event-list"); el.innerHTML = "";
@@ -431,7 +461,10 @@ function renderEvents() {
       `${S.labels.length} proposals · ${nLabeled} labeled · ${nExcl} excluded (not counted)`;
   S.labels.forEach((row, i) => {
     if (hideExcl && row.verified === "excluded") return;
-    const rel = +row.t_release_s || 0;
+    const rel = +row.t_release_s || 0, rimT = +row.t_rim_s || rel + 1.5;
+    const pre = parseFloat(($("clip-pre") || {}).value) || 3;
+    const post = parseFloat(($("clip-post") || {}).value) || 5;
+    const cs = Math.max(0, rel - pre), ce = Math.max(rimT, rel + 2.0) + post;   // dedicated window
     // Flag a likely duplicate: an earlier, non-excluded proposal whose release is within
     // ~2.5 s (one flight). The FSM cooldown catches most, but broken real-footage tracks
     // can re-trigger — surfacing it lets you exclude the extra.
@@ -442,7 +475,8 @@ function renderEvents() {
     }
     const d = document.createElement("div");
     d.className = `event ${row.verified || ""}`;
-    d.innerHTML = `<b>#${row.shot_id}</b> <button class="seek">▶ play @ ${rel.toFixed(1)}s</button>`;
+    d.innerHTML = `<b>#${row.shot_id}</b> ` +
+      `<button class="seek">▶ ${cs.toFixed(1)}–${ce.toFixed(1)}s (shot @ ${rel.toFixed(1)})</button>`;
     if (dupOf !== null && row.verified !== "excluded") {
       const w = document.createElement("span");
       w.className = "dup-warn"; w.textContent = ` ⚠ overlaps #${dupOf} — keep the real one, ✕ the other`;
@@ -463,18 +497,15 @@ function renderEvents() {
       renderEvents(); scheduleAutosave();
     };
     d.appendChild(ex);
-    d.querySelector(".seek").onclick = () => {
-      const rel2 = +row.t_release_s || 0, rim2 = +row.t_rim_s || rel2 + 1.5;
-      const pre = parseFloat($("clip-pre") && $("clip-pre").value) || 3;
-      const post = parseFloat($("clip-post") && $("clip-post").value) || 5;
-      // Guard against imprecise detector timestamps: guarantee a wide-enough window even if
-      // rim_t is early/missing.
-      playClip(rel2 - pre, Math.max(rim2, rel2 + 2.0) + post);
-    };
+    d.querySelector(".seek").onclick = () =>
+      playClip(cs, ce, { rel, rim: rimT, shotId: row.shot_id });
     el.appendChild(d);
   });
 }
 if ($("hide-excluded")) $("hide-excluded").onchange = () => { if (S.labels) renderEvents(); };
+["clip-pre", "clip-post"].forEach((id) => {
+  const el = $(id); if (el) el.onchange = () => { if (S.labels) renderEvents(); };
+});
 
 function select(opts, val, on, label) {
   const s = document.createElement("select");

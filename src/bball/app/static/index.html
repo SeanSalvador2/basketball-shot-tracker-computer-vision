@@ -78,7 +78,11 @@
     dropdowns, <b>✕ exclude</b> anything that isn't a real shot, and use <b>+ add missed
     shot</b> for ones it skipped. Edits auto-save. Imperfect proposals are expected — your
     corrections are the point.</p>
-  <video id="review-video" controls preload="metadata"></video>
+  <div id="review-sticky">
+    <video id="review-video" controls preload="metadata"></video>
+    <canvas id="clip-timeline" width="880" height="52"></canvas>
+    <div id="clip-caption" class="muted"></div>
+  </div>
   <div class="row">
     <span id="event-summary" class="muted"></span>
     <label class="muted"><input type="checkbox" id="hide-excluded"> hide excluded</label>
