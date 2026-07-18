@@ -468,9 +468,19 @@ function renderEvents() {
   if ($("event-summary"))
     $("event-summary").textContent =
       `${S.labels.length} proposals · ${nLabeled} labeled · ${nExcl} excluded (not counted)`;
+  let prevVisRel = null;
+  const addSep = (t) => {                     // inline "insert a shot here" between rows
+    const b = document.createElement("button");
+    b.className = "add-here"; b.textContent = "+ add a shot here";
+    b.onclick = () => addShotAt(t);
+    el.appendChild(b);
+  };
   S.labels.forEach((row, i) => {
     if (hideExcl && row.verified === "excluded") return;
     const rel = +row.t_release_s || 0, rimT = +row.t_rim_s || rel + 1.5;
+    // separator BEFORE this row: inserting there defaults to the midpoint to the previous shot
+    addSep(prevVisRel === null ? Math.max(0, rel - 2) : (prevVisRel + rel) / 2);
+    prevVisRel = rel;
     const pre = parseFloat(($("clip-pre") || {}).value) || 3;
     const post = parseFloat(($("clip-post") || {}).value) || 5;
     // Base window = the predetermined padding (fixed duration). With "prevent overlap" on,
@@ -525,7 +535,8 @@ function renderEvents() {
     d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
     // set this shot's time to the current playhead (position the clip precisely)
     const rt = document.createElement("button");
-    rt.textContent = "◉ set time"; rt.title = "set this shot's time to where the video is now";
+    rt.textContent = "◉ set shot time";
+    rt.title = "move this shot's marked time to where the video is now (scrub to the real shot first)";
     rt.onclick = () => {
       const nt = $("review-video").currentTime;
       row.t_release_s = nt.toFixed(2); row.t_rim_s = (nt + 1.5).toFixed(2);
@@ -551,6 +562,7 @@ function renderEvents() {
       playClip(cs, ce, { rel, rim: rimT, shotId: row.shot_id });
     el.appendChild(d);
   });
+  addSep(prevVisRel === null ? ($("review-video").currentTime || 0) : prevVisRel + 3);  // trailing
   el.scrollTop = savedScroll;          // keep place across re-renders (outcome/zone toggles)
 }
 if ($("hide-excluded")) $("hide-excluded").onchange = () => { if (S.labels) renderEvents(); };
@@ -574,9 +586,8 @@ function edit(i, k, v) {
   scheduleAutosave();
 }
 
-$("btn-add-missed").onclick = () => {
+function addShotAt(t) {
   if (!S.labels) { $("review-status").textContent = "run analysis first"; return; }
-  const t = $("review-video").currentTime;   // the added shot is anchored to the playhead
   const nextId = S.labels.reduce((m, r) => Math.max(m, +r.shot_id || 0), -1) + 1;  // stable unique id
   const rimT = t + 1.5;
   S.labels.push({ shot_id: nextId, t_release_s: t.toFixed(2), t_rim_s: rimT.toFixed(2),
@@ -587,9 +598,10 @@ $("btn-add-missed").onclick = () => {
   const pre = parseFloat(($("clip-pre") || {}).value) || 3, post = parseFloat(($("clip-post") || {}).value) || 5;
   playClip(t - pre, rimT + post, { rel: t, rim: rimT, shotId: nextId });     // show where it landed
   $("review-status").textContent =
-    `added shot #${nextId} at ${t.toFixed(1)}s (marked "added", in time order). Use ◉ set time to ` +
-    `reposition it, set its outcome, or 🗑 to delete it.`;
-};
+    `added shot #${nextId} at ${t.toFixed(1)}s (green "added"). Scrub to the exact shot and press ` +
+    `"◉ set shot time", then set its outcome. 🗑 deletes it.`;
+}
+$("btn-add-missed").onclick = () => addShotAt($("review-video").currentTime);
 $("btn-reset-labels").onclick = async () => {
   if (!S.sid) return;
   if (!confirm("Reset ALL labels for this session? Discards your make/miss corrections, " +
