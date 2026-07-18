@@ -202,7 +202,9 @@ def get_session(sid: str) -> dict:
 
 
 @app.get("/api/sessions/{sid}/frame")
-def get_frame(sid: str, t: float = 0.0, maxw: int = 1280) -> Response:
+def get_frame(sid: str, t: float = 0.0, maxw: int = 1920) -> Response:
+    # Serve near-native resolution: the rim is small/distant, so downscaling was the main
+    # source of blur when annotating and inspecting frames. High-quality JPEG on localhost.
     state = _load(sid)
     cap = cv2.VideoCapture(state["video"])
     try:
@@ -215,7 +217,7 @@ def get_frame(sid: str, t: float = 0.0, maxw: int = 1280) -> Response:
     h, w = frame.shape[:2]
     if w > maxw:
         frame = cv2.resize(frame, (maxw, int(h * maxw / w)))
-    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 87])
+    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 94])
     return Response(content=buf.tobytes(), media_type="image/jpeg",
                     headers={"X-Native-Width": str(w), "X-Native-Height": str(h)})
 
