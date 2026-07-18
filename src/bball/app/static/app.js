@@ -391,7 +391,8 @@ async function doAutosave() {
 
 async function loadLabels(fresh) {
   const res = await api(`/api/sessions/${S.sid}/labels${fresh ? "?fresh=1" : ""}`);
-  S.labels = res.rows.map((r) => ({ ...r }));
+  S.labels = res.rows.map((r) => ({ ...r }))
+    .sort((a, b) => (+a.t_release_s || 0) - (+b.t_release_s || 0));   // always time-ordered
   if (!S.labels.length) {
     setAutosave("");
     $("review-status").textContent = 'no proposals yet — press "Run analysis".';
@@ -554,10 +555,13 @@ function edit(i, k, v) {
 
 $("btn-add-missed").onclick = () => {
   const t = $("review-video").currentTime;
-  S.labels.push({ shot_id: S.labels.length, t_release_s: t.toFixed(2), t_rim_s: (t + 1.5).toFixed(2),
+  const nextId = S.labels.reduce((m, r) => Math.max(m, +r.shot_id || 0), -1) + 1;  // stable unique id
+  S.labels.push({ shot_id: nextId, t_release_s: t.toFixed(2), t_rim_s: (t + 1.5).toFixed(2),
     outcome: "make", zone: "", spot_id: "", shot_type: "", miss_direction: "", make_quality: "",
     court_x_m: "", court_y_m: "", verified: "corrected", source: "manual" });
+  S.labels.sort((a, b) => (+a.t_release_s || 0) - (+b.t_release_s || 0));   // slot into its time position
   renderEvents(); scheduleAutosave();
+  setAutosave(`added a shot at ${t.toFixed(1)}s (inserted in time order) — set its outcome`);
 };
 $("btn-save-labels").onclick = async () => {
   clearTimeout(autosaveTimer);
