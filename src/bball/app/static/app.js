@@ -174,7 +174,7 @@ function drawCalMap() {
 const calCanvas = $("cal-canvas"), calCtx = calCanvas.getContext("2d");
 let calImg = new Image(), calScale = { sx: 1, sy: 1 };
 
-function frameURL(t) { return `/api/sessions/${S.sid}/frame?t=${t}&maxw=1920`; }
+function frameURL(t) { return `/api/sessions/${S.sid}/frame?t=${t}&maxw=4096`; }
 
 /* Zoomed view: crop rect (canvas coords) magnified to fill the canvas. */
 function viewParams() {

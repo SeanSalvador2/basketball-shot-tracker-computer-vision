@@ -202,9 +202,10 @@ def get_session(sid: str) -> dict:
 
 
 @app.get("/api/sessions/{sid}/frame")
-def get_frame(sid: str, t: float = 0.0, maxw: int = 1920) -> Response:
-    # Serve near-native resolution: the rim is small/distant, so downscaling was the main
-    # source of blur when annotating and inspecting frames. High-quality JPEG on localhost.
+def get_frame(sid: str, t: float = 0.0, maxw: int = 4096) -> Response:
+    # Serve full native resolution (only downscale absurdly large 8K+ frames): the rim is
+    # small/distant, so ANY downscale is the main source of blur. 4K footage stays 4K.
+    # High-quality JPEG; on localhost the extra bytes are free.
     state = _load(sid)
     cap = cv2.VideoCapture(state["video"])
     try:
