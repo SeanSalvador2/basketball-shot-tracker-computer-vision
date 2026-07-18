@@ -500,6 +500,10 @@ function renderEvents() {
     d.className = `event ${row.verified || ""}`;
     d.innerHTML = `<b>#${row.shot_id}</b> ` +
       `<button class="seek">▶ ${cs.toFixed(1)}–${ce.toFixed(1)}s (shot @ ${rel.toFixed(1)})</button>`;
+    if (row.source === "manual") {
+      const b = document.createElement("span"); b.className = "added-badge"; b.textContent = "added";
+      d.appendChild(b);
+    }
     if (dupOf !== null && row.verified !== "excluded") {
       const w = document.createElement("span");
       w.className = "dup-warn"; w.textContent = ` ⚠ overlaps #${dupOf} — keep the real one, ✕ the other`;
@@ -519,6 +523,17 @@ function renderEvents() {
     if (row.outcome === "make" && (row.zone === "midrange" || row.zone === "3PT"))
       d.appendChild(select(QUAL, row.make_quality, (v) => edit(i, "make_quality", v), "quality"));
     d.appendChild(select(TYPES, row.shot_type, (v) => edit(i, "shot_type", v), "type"));
+    // set this shot's time to the current playhead (position the clip precisely)
+    const rt = document.createElement("button");
+    rt.textContent = "◉ set time"; rt.title = "set this shot's time to where the video is now";
+    rt.onclick = () => {
+      const nt = $("review-video").currentTime;
+      row.t_release_s = nt.toFixed(2); row.t_rim_s = (nt + 1.5).toFixed(2);
+      if (!row.verified) row.verified = "corrected";
+      S.labels.sort((a, b) => (+a.t_release_s || 0) - (+b.t_release_s || 0));
+      renderEvents(); scheduleAutosave();
+    };
+    d.appendChild(rt);
     const ex = document.createElement("button");
     ex.textContent = row.verified === "excluded" ? "↺ restore" : "✕ not a shot";
     ex.onclick = () => {
@@ -526,6 +541,12 @@ function renderEvents() {
       renderEvents(); scheduleAutosave();
     };
     d.appendChild(ex);
+    if (row.source === "manual") {          // delete only manual rows; pipeline rows use ✕ (kept as false positives)
+      const del = document.createElement("button");
+      del.textContent = "🗑"; del.title = "delete this added row";
+      del.onclick = () => { S.labels = S.labels.filter((r) => r !== row); renderEvents(); scheduleAutosave(); };
+      d.appendChild(del);
+    }
     d.querySelector(".seek").onclick = () =>
       playClip(cs, ce, { rel, rim: rimT, shotId: row.shot_id });
     el.appendChild(d);
@@ -554,14 +575,30 @@ function edit(i, k, v) {
 }
 
 $("btn-add-missed").onclick = () => {
-  const t = $("review-video").currentTime;
+  if (!S.labels) { $("review-status").textContent = "run analysis first"; return; }
+  const t = $("review-video").currentTime;   // the added shot is anchored to the playhead
   const nextId = S.labels.reduce((m, r) => Math.max(m, +r.shot_id || 0), -1) + 1;  // stable unique id
-  S.labels.push({ shot_id: nextId, t_release_s: t.toFixed(2), t_rim_s: (t + 1.5).toFixed(2),
+  const rimT = t + 1.5;
+  S.labels.push({ shot_id: nextId, t_release_s: t.toFixed(2), t_rim_s: rimT.toFixed(2),
     outcome: "make", zone: "", spot_id: "", shot_type: "", miss_direction: "", make_quality: "",
     court_x_m: "", court_y_m: "", verified: "corrected", source: "manual" });
   S.labels.sort((a, b) => (+a.t_release_s || 0) - (+b.t_release_s || 0));   // slot into its time position
   renderEvents(); scheduleAutosave();
-  setAutosave(`added a shot at ${t.toFixed(1)}s (inserted in time order) — set its outcome`);
+  const pre = parseFloat(($("clip-pre") || {}).value) || 3, post = parseFloat(($("clip-post") || {}).value) || 5;
+  playClip(t - pre, rimT + post, { rel: t, rim: rimT, shotId: nextId });     // show where it landed
+  $("review-status").textContent =
+    `added shot #${nextId} at ${t.toFixed(1)}s (marked "added", in time order). Use ◉ set time to ` +
+    `reposition it, set its outcome, or 🗑 to delete it.`;
+};
+$("btn-reset-labels").onclick = async () => {
+  if (!S.sid) return;
+  if (!confirm("Reset ALL labels for this session? Discards your make/miss corrections, " +
+    "exclusions and added shots, and reloads the raw pipeline proposals. " +
+    "(Calibration, rim and the video are kept.)")) return;
+  await api(`/api/sessions/${S.sid}/labels`, { method: "DELETE" });
+  S.labels = null;
+  await loadLabels(true);
+  $("review-status").textContent = "labels reset to raw proposals.";
 };
 $("btn-save-labels").onclick = async () => {
   clearTimeout(autosaveTimer);

@@ -325,3 +325,14 @@ def test_rename_and_delete_session(client, video):
     assert d.status_code == 200 and d.json()["deleted"] == sid
     assert all(x["sid"] != sid for x in client.get("/api/sessions").json())
     assert client.get(f"/api/sessions/{sid}").status_code == 404
+
+
+def test_reset_labels_falls_back_to_proposals(client, video):
+    s = _mksession(client, video)
+    client.post(f"/api/sessions/{s['sid']}/labels", json={"rows": [
+        {"shot_id": 0, "outcome": "make", "verified": "corrected", "source": "manual"}]})
+    assert client.get(f"/api/sessions/{s['sid']}/labels").json()["saved"] == "labels.csv"
+    d = client.request("DELETE", f"/api/sessions/{s['sid']}/labels")
+    assert d.status_code == 200 and d.json()["reset"] == s["sid"]
+    after = client.get(f"/api/sessions/{s['sid']}/labels").json()
+    assert after["saved"] in (False, None)   # csv gone -> back to proposals

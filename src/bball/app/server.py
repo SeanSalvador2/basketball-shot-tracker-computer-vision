@@ -510,6 +510,16 @@ async def post_labels(sid: str, request: Request) -> dict:
     return {"saved": str(path), "n": len(rows)}
 
 
+@app.delete("/api/sessions/{sid}/labels")
+def reset_labels(sid: str) -> dict:
+    """Discard all human labels (make/miss, exclusions, added shots) — the next load falls
+    back to the raw pipeline proposals. Calibration, rim and analysis are untouched."""
+    p = _sdir(sid) / "labels.csv"
+    if p.exists():
+        p.unlink()
+    return {"reset": sid}
+
+
 # --------------------------------------------------------------------------- #
 # Zones
 # --------------------------------------------------------------------------- #
